@@ -1,0 +1,403 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>processRejectionCommonSpaceCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for processRejectionCommonSpaceCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="kn">import</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">math</span><span class="o">,</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">commands</span><span class="o">,</span> <span class="nn">numpy</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;/local_disk/hera2/PERCOL/bigot/PlateformeRecoName/lib/sparsesvd/lib.linux-x86_64-2.6&#39;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span>
+<span class="kn">import</span> <span class="nn">sparsesvd</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="kn">import</span> <span class="nn">buildMatrixCCM</span>
+<span class="kn">import</span> <span class="nn">processRejectionEntitySpaceCCM</span>
+<span class="kn">import</span> <span class="nn">learnSVMmodelCCM</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;/local_disk/hera2/PERCOL/bigot/PlateformeRecoName/bin/scikit-learn-0.13/build/lib.linux-x86_64-2.6/&#39;</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;/local_disk/hera2/PERCOL/bigot/PlateformeRecoName/bin/joblib-0.7.0b/build/lib.linux-x86_64-2.6/&#39;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">joblib</span>
+<span class="kn">import</span> <span class="nn">sklearn</span> 
+<span class="kn">import</span> <span class="nn">sklearn.mixture</span> 
+<span class="kn">import</span> <span class="nn">pylab</span>
+<span class="kn">import</span> <span class="nn">matplotlib</span>
+
+
+<span class="c">#------------------#</span>
+<div class="viewcode-block" id="writeReject"><a class="viewcode-back" href="../processRejectionCommonSpaceCCM.html#processRejectionCommonSpaceCCM.writeReject">[docs]</a><span class="k">class</span> <span class="nc">writeReject</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>	
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">expe</span><span class="p">,</span> <span class="n">listCandidates</span><span class="p">):</span>
+		<span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+		<span class="sd">&#39;&#39;&#39; differneces with the first rejection rules </span>
+<span class="sd">		 is in the lexicon choice and the reduction process</span>
+<span class="sd">		 one large lexcion is used and SVD is processed on the whole rejection matrix</span>
+<span class="sd">		&#39;&#39;&#39;</span>
+		
+		
+		<span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">=</span> <span class="s">&#39;&#39;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">expe</span> <span class="o">=</span> <span class="n">expe</span> 
+		<span class="bp">self</span><span class="o">.</span><span class="n">candidates</span> <span class="o">=</span> <span class="n">listCandidates</span>
+		<span class="c">#self.candidates = [&#39;NICOLAS_SARKOZY&#39;, &#39;FRANCOIS_HOLLANDE&#39;, &#39;FRANCOIS_BAYROU&#39;]</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;______________processing &#39;</span> <span class="o">+</span> <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;___________________&#39;</span><span class="p">)</span>
+
+		
+		<span class="bp">self</span><span class="o">.</span><span class="n">candidateContextFiles</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">candidateLexiconFiles</span> <span class="o">=</span> <span class="p">[]</span>
+		
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">candidateContextFiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">candidateLexiconFiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span><span class="p">)</span>
+		<span class="c">#print self.candidateLexiconFiles </span>
+		<span class="c">#print self.candidateContextFiles</span>
+		
+		<span class="bp">self</span><span class="o">.</span><span class="n">context</span>   	<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">label</span>		<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span>    <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+		
+		<span class="c"># == rejection file variables == #</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejContextFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.context&#39;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejListFile</span>    <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.list&#39;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejLexiconFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.lexicon&#39;</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejLexicon</span>	<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejLabel</span>   <span class="o">=</span> <span class="p">[]</span>
+		
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalContext</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span>   <span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconPosition</span> <span class="o">=</span> <span class="p">[]</span>
+		
+		
+	
+		<span class="bp">self</span><span class="o">.</span><span class="n">winLength</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextBuildMatrixWindow</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span>     <span class="o">=</span> <span class="p">[]</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">cutoffSVD</span><span class="p">)</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">sparseMat</span>	<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">vt</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="c">#_____________________________________________________#</span>
+<div class="viewcode-block" id="writeReject.run"><a class="viewcode-back" href="../processRejectionCommonSpaceCCM.html#processRejectionCommonSpaceCCM.writeReject.run">[docs]</a>	<span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;toto&#39;</span> <span class="p">,</span>  <span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span>
+		<span class="c"># == preparing data for every candidates == #</span>
+		<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">):</span>
+			<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidateContextFiles</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>	
+				<span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidateContextFiles</span><span class="p">[</span><span class="n">i</span><span class="p">])))</span> <span class="p">:</span> 
+				<span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="o">=</span> <span class="n">mergeLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> <span class="p">,</span> <span class="n">processRejectionEntitySpaceCCM</span><span class="o">.</span><span class="n">loadLexiconFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidateLexiconFiles</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+			<span class="k">print</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s">&#39;: &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidateContextFiles</span><span class="p">[</span><span class="n">i</span><span class="p">])))</span><span class="o">+</span><span class="s">&#39; contextes&#39;</span><span class="p">)</span>
+			<span class="k">print</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s">&#39;: &#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">processRejectionEntitySpaceCCM</span><span class="o">.</span><span class="n">loadLexiconFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidateLexiconFiles</span><span class="p">[</span><span class="n">i</span><span class="p">])))</span><span class="o">+</span><span class="s">&#39; lexicon items&#39;</span><span class="p">)</span>
+		<span class="c">#print(&#39;concatenation: &#39;+str(len(self.context))+&#39; contextes&#39;)</span>
+		<span class="c">#print(&#39;concatenation: &#39;+str(len(self.label))+&#39; label items&#39;)</span>
+		<span class="c">#print(&#39;concatenation: &#39;+str(len(self.lexicon))+&#39; lexicon items&#39;)		</span>
+		
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">:</span>
+			<span class="c"># prepare sorted lexicon #</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">globalContext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span>
+
+		<span class="c"># == if only one name use rejection List instead == #</span>
+		<span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span> <span class="o">=</span> <span class="n">processRejectionEntitySpaceCCM</span><span class="o">.</span><span class="n">loadRejContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rejContextFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejListFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">rejLabel</span>   <span class="o">=</span> <span class="p">[</span><span class="s">&#39;rejection&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span><span class="p">)</span>			
+			<span class="bp">self</span><span class="o">.</span><span class="n">rejLexicon</span> <span class="o">=</span> <span class="n">processRejectionEntitySpaceCCM</span><span class="o">.</span><span class="n">loadLexiconFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rejLexiconFile</span><span class="p">)</span>
+			<span class="c">#print(&#39;number of rejection Context : &#39; + str(len(self.rejContext)))</span>
+			<span class="c">#print(&#39;number of rejection lexicon item : &#39; + str(len(self.rejLexicon)))</span>
+			<span class="c">#print(&#39;number of rejection label item : &#39; + str(len(self.rejLabel)))</span>
+		
+			<span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+				<span class="c"># == verifier la premiere ligne des fichiers de contextes == #</span>
+				<span class="c"># == garder une trace du nombre de contexte pour chaque classe concerne</span>
+				<span class="bp">self</span><span class="o">.</span><span class="n">globalContext</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span>	
+				<span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span>   <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejLabel</span>			
+				<span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span> <span class="o">=</span> <span class="n">mergeLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejLexicon</span><span class="p">)</span>
+				<span class="c"># sort lexicon and put it in a global container #				</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;problem no rejection example found&#39;</span><span class="p">)</span>
+				<span class="nb">exit</span><span class="p">()</span>
+					
+		<span class="c"># == so far self.globalContext self.globalLabel self.globalLexicon are information containers == #</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconSorted</span>	<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">getSortedLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconPosition</span>    <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexiconPositionTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconSorted</span><span class="p">)</span>	
+		<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">writeLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span><span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span><span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span><span class="o">+</span><span class="s">&#39;.lexicon&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconSorted</span><span class="p">)</span>
+	
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__________________&#39;</span><span class="p">)</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;global context : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalContext</span><span class="p">)))</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;globalLexicon  : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span><span class="p">)))</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;globalLabel    : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span>  <span class="p">)))</span>
+
+		<span class="c"># == print label List in a file == #</span>
+		<span class="n">fLabel</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.list&#39;</span><span class="p">,</span> <span class="s">&#39;w&#39;</span> <span class="p">)</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span> <span class="p">:</span>
+			<span class="n">fLabel</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+		<span class="n">fLabel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+		<span class="k">print</span><span class="p">(</span> <span class="s">&#39;---&gt; building matrix&#39;</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">computeMatrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">winLength</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">globalLexiconPosition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">globalContext</span><span class="p">)</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;matrix shape : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+		<span class="c">#print self.denseMat</span>
+                <span class="c">#buildMatrixCCM.dump2File(self.denseMat, self.expe.expeMatDir+ &#39;/&#39; + &#39;+&#39;.join(self.candidates) + &#39;.dense&#39;)</span>
+
+		<span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; creating sparse representation matrix&#39;</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">sparseMat</span>	<span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">)</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt;  computind svd&#39;</span><span class="p">)</span>
+			<span class="n">ut</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vt</span> 	<span class="o">=</span> <span class="n">sparsesvd</span><span class="o">.</span><span class="n">sparsesvd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparseMat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span><span class="p">)</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;vmatrix shape : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;dumping Vt matric to a file :&#39;</span>  <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;-Vt&#39;</span><span class="p">)</span>
+			<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">dump2File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;-Vt&#39;</span><span class="p">)</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; reducing matrix&#39;</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">computeReduction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span><span class="p">)</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;----&gt; saving mapped matrix to a file&#39;</span><span class="p">)</span>
+			<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">dump2File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span><span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.mapped&#39;</span><span class="p">)</span>
+	
+	
+	
+	
+	
+		<span class="c"># == classification is realized in a one against all manner == #</span>
+		<span class="c"># == everything is in an only file == #</span>
+		<span class="c"># == learning SVM == #</span>
+		<span class="c"># == needed self.reducedMatrix and self.globalLabel</span>
+		<span class="c"># == tout est fait dans la foulée == #	</span>
+		<span class="c"># ce qui est fait est de prender l&#39;une ou l&#39;autres classes comme égale à 1 ou -1</span>
+		<span class="c"># dans le cas de deux noms àa ne change rien mais pas dans les autres cas.</span>
+		
+		
+		<span class="c"># ajouter un condition si il n&#39;y a que deux classes.</span>
+		
+		<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">):</span>
+			<span class="n">svmOutputMatrix</span> <span class="o">=</span> <span class="p">[]</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;_____processing SVM model for &#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span><span class="s">&#39;______&#39;</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span><span class="p">):</span>
+				<span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+					<span class="c">#print(&#39;ok&#39;)</span>
+					<span class="n">currentLine</span> <span class="o">=</span> <span class="s">&#39;1 &#39;</span>
+				<span class="k">elif</span> <span class="n">label</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
+					<span class="c">#print(&#39;nok&#39;)</span>
+					<span class="n">currentLine</span> <span class="o">=</span> <span class="s">&#39;-1 &#39;</span>
+				<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">valeur</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">j</span><span class="p">]):</span>
+					<span class="c">#print(name, label.rstrip(),  currentLine)</span>
+					<span class="n">currentLine</span> <span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span><span class="s">&#39;:&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">valeur</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39; &#39;</span>
+				<span class="n">svmOutputMatrix</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">currentLine</span><span class="p">)</span>
+		
+			<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="p">:</span>
+				<span class="n">svmOutputFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span>  <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">svmMatExt</span> 
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="n">svmOutputFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">svmMatExt</span> 
+
+			<span class="n">fOut</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">svmOutputFile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">svmOutputMatrix</span> <span class="p">:</span>
+				<span class="n">fOut</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+			<span class="n">fOut</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+			
+			
+			<span class="n">svmMatFile</span>   <span class="o">=</span> <span class="n">svmOutputFile</span>
+			<span class="n">svmScaleFile</span> <span class="o">=</span> <span class="n">svmMatFile</span> <span class="o">+</span> <span class="s">&#39;.scale&#39;</span>
+			<span class="n">svmRangeFile</span> <span class="o">=</span> <span class="n">svmMatFile</span> <span class="o">+</span> <span class="s">&#39;.range&#39;</span>
+			<span class="n">svmModelFile</span> <span class="o">=</span> <span class="n">svmMatFile</span> <span class="o">+</span> <span class="s">&#39;.model&#39;</span>
+
+			<span class="n">svmScaleCommand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">commandSVMscale</span> <span class="o">+</span> <span class="s">&#39; -s &#39;</span> <span class="o">+</span> <span class="n">svmRangeFile</span> <span class="o">+</span> <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="n">svmMatFile</span> <span class="o">+</span> <span class="s">&#39; &gt; &#39;</span> <span class="o">+</span> <span class="n">svmScaleFile</span>
+			<span class="n">svmTrainCommand</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">commandSVMtrain</span> <span class="o">+</span> <span class="s">&#39; &#39;</span>    <span class="o">+</span> <span class="n">svmScaleFile</span>  <span class="o">+</span> <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="n">svmModelFile</span>
+			
+			<span class="n">learnSVMmodelCCM</span><span class="o">.</span><span class="n">scaleData</span><span class="p">(</span><span class="n">svmRangeFile</span><span class="p">,</span> <span class="n">svmScaleCommand</span><span class="p">)</span>
+			<span class="n">learnSVMmodelCCM</span><span class="o">.</span><span class="n">trainSVM</span><span class="p">(</span><span class="n">svmModelFile</span><span class="p">,</span> <span class="n">svmTrainCommand</span><span class="p">)</span>
+			<span class="c">#os.remove(svmMatFile)</span>
+			<span class="c">#~ os.remove(svmScaleFile)</span>
+			
+			<span class="k">if</span>  <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">:</span>
+				<span class="k">break</span>
+
+
+
+
+
+
+
+
+
+		
+		<span class="c"># == apprentissage des modeles de gaussiennes == #</span>
+		<span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="p">:</span>
+			<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;_____processing GMM model for &#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span><span class="s">&#39;______&#39;</span><span class="p">)</span>
+				<span class="n">gmmOutputFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">gmmExt</span>
+			
+				<span class="n">ligne</span> <span class="o">=</span><span class="p">[]</span>
+				<span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span><span class="p">):</span>
+					<span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+						<span class="n">ligne</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+
+				<span class="n">gmmOutputMatrix</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">ligne</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+				<span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+				<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ligne</span><span class="p">:</span>
+					<span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="p">:</span>
+						<span class="n">gmmOutputMatrix</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+					<span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+					
+			
+			
+				<span class="k">print</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">gmmOutputMatrix</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+				<span class="n">classifier</span> <span class="o">=</span> <span class="n">sklearn</span><span class="o">.</span><span class="n">mixture</span><span class="o">.</span><span class="n">GMM</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">covariance_type</span><span class="o">=</span><span class="s">&#39;diag&#39;</span> <span class="p">,</span> <span class="n">init_params</span><span class="o">=</span><span class="s">&#39;wc&#39;</span> <span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+				<span class="k">try</span><span class="p">:</span>
+					<span class="n">classifier</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">svmOutputMatrix</span><span class="p">)</span>
+					<span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">classifier</span><span class="p">,</span> <span class="n">gmmOutputFile</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+				<span class="k">except</span> <span class="p">:</span> 
+					<span class="k">print</span><span class="p">(</span><span class="s">&#39;----&gt; not enough contexts for &#39;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
+					
+					
+		<span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="p">:</span>
+			<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;_____processing GMM model for &#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span><span class="s">&#39;______&#39;</span><span class="p">)</span>
+				<span class="n">gmmOutputFileAccept</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">gmmExt</span> <span class="o">+</span> <span class="s">&#39;.accept&#39;</span>
+				<span class="n">gmmOutputFileReject</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="s">&#39;+&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">candidates</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.&#39;</span> <span class="o">+</span> <span class="n">name</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">gmmExt</span> <span class="o">+</span> <span class="s">&#39;.reject&#39;</span>
+
+				<span class="n">ligneAccept</span> <span class="o">=</span><span class="p">[]</span>
+				<span class="n">ligneReject</span> <span class="o">=</span><span class="p">[]</span>
+				
+				<span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">globalLabel</span><span class="p">):</span>
+					<span class="k">if</span> <span class="n">label</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+						<span class="n">ligneAccept</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+					<span class="k">else</span> <span class="p">:</span>
+						<span class="n">ligneReject</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
+						
+				<span class="n">gmmOutputMatrixAccept</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">ligneAccept</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+				<span class="n">gmmOutputMatrixReject</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">ligneReject</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+				
+				<span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+				<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ligneAccept</span><span class="p">:</span>
+					<span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="p">:</span>
+						<span class="n">gmmOutputMatrixAccept</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+					<span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+
+				<span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+				<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ligneReject</span><span class="p">:</span>
+					<span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="p">:</span>
+						<span class="n">gmmOutputMatrixReject</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+					<span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+
+				<span class="k">print</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">gmmOutputMatrixAccept</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+				<span class="k">print</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">gmmOutputMatrixReject</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+				
+				
+				<span class="n">classifierAccept</span> <span class="o">=</span> <span class="n">sklearn</span><span class="o">.</span><span class="n">mixture</span><span class="o">.</span><span class="n">GMM</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">covariance_type</span><span class="o">=</span><span class="s">&#39;diag&#39;</span> <span class="p">,</span> <span class="n">init_params</span><span class="o">=</span><span class="s">&#39;wc&#39;</span> <span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+				<span class="n">classifierReject</span> <span class="o">=</span> <span class="n">sklearn</span><span class="o">.</span><span class="n">mixture</span><span class="o">.</span><span class="n">GMM</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">covariance_type</span><span class="o">=</span><span class="s">&#39;diag&#39;</span> <span class="p">,</span> <span class="n">init_params</span><span class="o">=</span><span class="s">&#39;wc&#39;</span> <span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+				<span class="k">try</span><span class="p">:</span>
+					<span class="n">classifierAccept</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">gmmOutputMatrixAccept</span><span class="p">)</span>
+					<span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">classifierAccept</span><span class="p">,</span> <span class="n">gmmOutputFileAccept</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+				<span class="k">except</span> <span class="p">:</span> 
+					<span class="k">print</span><span class="p">(</span><span class="s">&#39;----&gt; not enough contexts for acceptation &#39;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
+					
+				<span class="k">try</span><span class="p">:</span>
+					<span class="n">classifierReject</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">gmmOutputMatrixReject</span><span class="p">)</span>
+					<span class="n">joblib</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">classifierReject</span><span class="p">,</span> <span class="n">gmmOutputFileReject</span><span class="p">,</span> <span class="n">compress</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">cache_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+				<span class="k">except</span> <span class="p">:</span> 
+					<span class="k">print</span><span class="p">(</span><span class="s">&#39;----&gt; not enough contexts for rejection &#39;</span> <span class="o">+</span> <span class="n">name</span><span class="p">)</span>
+		
+		
+<span class="c">#________________________________________________________________#</span></div></div>
+<div class="viewcode-block" id="mergeLexicon"><a class="viewcode-back" href="../processRejectionCommonSpaceCCM.html#processRejectionCommonSpaceCCM.mergeLexicon">[docs]</a><span class="k">def</span> <span class="nf">mergeLexicon</span><span class="p">(</span><span class="n">lexicon1</span> <span class="p">,</span> <span class="n">lexicon2</span><span class="p">)</span> <span class="p">:</span>
+	<span class="sd">&#39;&#39;&#39; merging hash depending on value&#39;&#39;&#39;</span>
+	<span class="n">globalLexicon</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">lexicon1</span><span class="p">)</span>
+	
+	<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">lexicon2</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="n">globalLexicon</span><span class="o">.</span><span class="n">has_key</span><span class="p">(</span><span class="n">item</span><span class="p">)</span> <span class="p">:</span>
+			<span class="n">globalLexicon</span><span class="p">[</span><span class="n">item</span><span class="p">]</span> <span class="o">+=</span> <span class="n">lexicon2</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="n">globalLexicon</span><span class="p">[</span><span class="n">item</span><span class="p">]</span> <span class="o">=</span> <span class="n">lexicon2</span><span class="p">[</span><span class="n">item</span><span class="p">]</span>
+	<span class="c"># == attention au retour par reference qui pourrait modifier le contenu == #</span>
+	<span class="k">return</span> <span class="n">globalLexicon</span>	
+<span class="c">#________________________________________________________________#	</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

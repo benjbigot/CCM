@@ -1,0 +1,176 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>processRejectionEntitySpaceCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for processRejectionEntitySpaceCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="kn">import</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">math</span><span class="o">,</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="kn">import</span> <span class="nn">buildMatrixCCM</span>
+<span class="c">#------------------#</span>
+
+<div class="viewcode-block" id="writeReject"><a class="viewcode-back" href="../processRejectionEntitySpaceCCM.html#processRejectionEntitySpaceCCM.writeReject">[docs]</a><span class="k">class</span> <span class="nc">writeReject</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>	
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rule</span> <span class="p">,</span> <span class="n">expe</span><span class="p">):</span>
+		<span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">=</span> <span class="n">rule</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">expe</span> <span class="o">=</span> <span class="n">expe</span> 
+		
+		<span class="c"># == full rejection list and context files == #</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span> 	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.context&#39;</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejList</span>    	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.list&#39;</span>
+	
+		<span class="bp">self</span><span class="o">.</span><span class="n">contextFile</span> 	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconFile</span> 	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">svdMatFile</span> 	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">svdDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">svdExt</span>	
+		
+		<span class="bp">self</span><span class="o">.</span><span class="n">rejMatFile</span> 	<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span>	
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">winLength</span> 		<span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextBuildMatrixWindow</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> 		<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>		
+		<span class="bp">self</span><span class="o">.</span><span class="n">context</span> 		<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">matrix</span>  		<span class="o">=</span> <span class="p">[]</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">reducedMat</span> 	<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> 		<span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">cutoffSVD</span><span class="p">)</span>
+	<span class="c">#_____________________________________________________#</span>
+<div class="viewcode-block" id="writeReject.run"><a class="viewcode-back" href="../processRejectionEntitySpaceCCM.html#processRejectionEntitySpaceCCM.writeReject.run">[docs]</a>	<span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contextFile</span><span class="p">)):</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">context</span> 	<span class="o">=</span> <span class="n">loadRejContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rejContext</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejList</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> 	<span class="o">=</span> <span class="n">loadLexiconFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexiconFile</span><span class="p">)</span>		
+			<span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span> <span class="o">=</span> <span class="n">loadLexiconPositionTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexiconFile</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">matrix</span>  	<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">computeMatrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">winLength</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">vt</span>			<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadMatFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">svdMatFile</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">reducedMat</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">computeReduction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span><span class="p">)</span>
+			<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">dump2File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejMatFile</span><span class="p">)</span>
+			
+			<span class="c">#computeRejMatrix()</span>
+			<span class="c">#self.computeReduction()</span>
+			<span class="c">#self.write2File()</span>
+<span class="c">#________________________________________________________________#</span></div></div>
+<div class="viewcode-block" id="loadRejContextFile"><a class="viewcode-back" href="../processRejectionEntitySpaceCCM.html#processRejectionEntitySpaceCCM.loadRejContextFile">[docs]</a><span class="k">def</span> <span class="nf">loadRejContextFile</span><span class="p">(</span><span class="n">rejContext</span><span class="p">,</span> <span class="n">rejList</span><span class="p">,</span> <span class="n">rule</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; load lines not corresponding to the current rule &#39;&#39;&#39;</span>
+	<span class="c">#print(&#39;processing context file &#39; + self.contextFile)</span>
+	<span class="n">context</span>		<span class="o">=</span> <span class="p">[]</span>
+	<span class="n">contextOut</span>		<span class="o">=</span> <span class="p">[]</span>
+	<span class="n">fContext</span>    <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">rejContext</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+	<span class="n">fList</span>       <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">rejList</span>   <span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+	<span class="n">contextTemp</span> <span class="o">=</span> <span class="n">fContext</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+	<span class="n">listTemp</span>    <span class="o">=</span> <span class="n">fList</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+	<span class="n">fContext</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	<span class="n">fList</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+	<span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">listTemp</span><span class="p">)</span> <span class="p">:</span> 
+		<span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">!=</span> <span class="n">rule</span><span class="p">):</span> 
+   	   		<span class="n">currentLine</span> <span class="o">=</span> <span class="n">contextTemp</span><span class="p">[</span><span class="n">index</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;;&#39;</span><span class="p">)</span>
+   	   		<span class="n">context</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">currentLine</span><span class="p">)</span>
+   	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">context</span><span class="p">:</span>
+		<span class="n">contextOut</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">[</span><span class="mi">2</span><span class="p">:])</span>
+	<span class="k">return</span> <span class="n">contextOut</span>
+<span class="c">#_____________________________________________________________________#</span></div>
+<div class="viewcode-block" id="loadLexiconFile"><a class="viewcode-back" href="../processRejectionEntitySpaceCCM.html#processRejectionEntitySpaceCCM.loadLexiconFile">[docs]</a><span class="k">def</span> <span class="nf">loadLexiconFile</span><span class="p">(</span><span class="n">lexFile</span><span class="p">):</span>
+	<span class="n">lexicon</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">loadFile</span><span class="p">(</span><span class="n">lexFile</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">lexicon</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+		<span class="c">#print( line.rstrip().split(&#39; &#39;)[0] ,  lexicon[line.rstrip().split(&#39; &#39;)[0] ] )</span>
+	<span class="k">return</span> <span class="n">lexicon</span>
+<span class="c">#_____________________________________________________________________#	</span></div>
+<div class="viewcode-block" id="loadLexiconPositionTable"><a class="viewcode-back" href="../processRejectionEntitySpaceCCM.html#processRejectionEntitySpaceCCM.loadLexiconPositionTable">[docs]</a><span class="k">def</span> <span class="nf">loadLexiconPositionTable</span><span class="p">(</span><span class="n">lexFile</span><span class="p">):</span>
+	<span class="n">lexicon</span>  <span class="o">=</span> <span class="p">{}</span>
+	<span class="n">position</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">loadFile</span><span class="p">(</span><span class="n">lexFile</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">lexicon</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="p">]</span> <span class="o">=</span> <span class="n">position</span>
+		<span class="n">position</span> <span class="o">+=</span> <span class="mi">1</span>
+	<span class="k">return</span> <span class="n">lexicon</span>
+<span class="c">#_____________________________________________________________________#</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

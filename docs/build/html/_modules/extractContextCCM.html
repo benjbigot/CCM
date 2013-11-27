@@ -1,0 +1,377 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>extractContextCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for extractContextCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+<span class="c"># import re,os</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">defaultdict</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="c">#import commands</span>
+<span class="c">#import subprocess</span>
+<span class="c">#import cProfile</span>
+
+<span class="c">#______ entity class _____#</span>
+<div class="viewcode-block" id="extractContext"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.extractContext">[docs]</a><span class="k">class</span> <span class="nc">extractContext</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; for one personId (rule), accepation and rejection rules, </span>
+<span class="sd">		in one corpusDir extracts the contexts centered on the speaker name </span>
+<span class="sd">		produces 2 files : one lexicon and one context file</span>
+<span class="sd">		search in the unfiltred context and get the POS filtered.</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">corpusDirContentPOS</span><span class="p">,</span> <span class="n">subCorpusName</span><span class="p">,</span> <span class="n">expe</span><span class="p">,</span><span class="n">fileList</span><span class="p">):</span>
+		<span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>	
+	
+		<span class="c"># == basic class atributes == #</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">=</span> <span class="n">rule</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">expe</span> <span class="o">=</span> <span class="n">expe</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">fileList</span> <span class="o">=</span> <span class="n">fileList</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">corpusDirContent</span>   <span class="o">=</span> <span class="n">corpusDirContent</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">corpusDirContentPOS</span>   <span class="o">=</span> <span class="n">corpusDirContentPOS</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">subCorpusName</span>      <span class="o">=</span> <span class="n">subCorpusName</span>
+
+		<span class="bp">self</span><span class="o">.</span><span class="n">outContextFile</span>     <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span>
+	
+	<span class="c">#____________________________________________________________#</span>
+	
+<div class="viewcode-block" id="extractContext.run"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.extractContext.run">[docs]</a>	<span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>	
+		<span class="c"># == recherche et ecriture des contextes == #</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">getContext</span><span class="p">()</span>
+
+		<span class="c"># == once work is done, update the done list == #</span>
+		<span class="n">fDone</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;.subcorpusDone&#39;</span> <span class="p">,</span> <span class="s">&#39;a&#39;</span><span class="p">)</span>	
+		<span class="n">fDone</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subCorpusName</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+		<span class="n">fDone</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		
+	<span class="c">#____________________________________________________________#</span>
+	</div>
+<div class="viewcode-block" id="extractContext.getContext"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.extractContext.getContext">[docs]</a>	<span class="k">def</span> <span class="nf">getContext</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">			start by looking for pattern quickly, then check </span>
+<span class="sd">		    acceptation and rejection finally produce indexed vectors </span>
+<span class="sd">		    output are written for each subcorpus</span>
+<span class="sd">		&#39;&#39;&#39;</span>
+		<span class="n">fTrace</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;.traces&#39;</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+		
+		
+		<span class="c"># == for each subcorpus == #</span>
+		<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">corpusDirContent</span><span class="p">)):</span>
+			<span class="n">subcorpus</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">corpusDirContent</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
+			<span class="n">subcorpusPOS</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">corpusDirContentPOS</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
+			
+			<span class="c"># == clear output for every subcoprpus == #</span>
+			<span class="n">outputContextPosition</span> <span class="o">=</span> <span class="p">[]</span>
+			<span class="n">outputContext</span> <span class="o">=</span> <span class="p">[]</span>
+			
+			<span class="c"># ======== 1. get positions of rule in the unfiltred file content ==== #</span>
+			<span class="k">if</span><span class="p">(</span><span class="n">checkExistence</span><span class="p">(</span><span class="n">subcorpus</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">acceptation</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="p">])):</span>	
+				<span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">subcorpus</span><span class="p">))</span> <span class="p">:</span>
+					<span class="k">for</span> <span class="n">elmt</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">acceptation</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="p">]</span> <span class="p">:</span>
+						<span class="c"># == accept or reject the pattern, if accepted, get its position == #</span>
+						<span class="k">if</span> <span class="n">validate_elmt</span><span class="p">(</span><span class="n">subcorpus</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">elmt</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rejection</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rule</span><span class="p">]):</span>
+							<span class="n">outputContextPosition</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">position</span><span class="p">)</span>
+
+
+			<span class="c"># ======== 2.once for a subcorpus every occurrences have been found === #</span>
+			<span class="k">if</span> <span class="p">(</span> <span class="nb">len</span><span class="p">(</span><span class="n">outputContextPosition</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">:</span>
+				<span class="n">fTrace</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileList</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">+</span> <span class="s">&#39;  &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outputContextPosition</span><span class="p">))</span> <span class="o">+</span> <span class="s">&#39; contexte</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+				<span class="k">for</span> <span class="n">occurrence</span> <span class="ow">in</span> <span class="n">outputContextPosition</span> <span class="p">:</span>
+					<span class="n">outputContext</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">writeContext</span><span class="p">(</span><span class="n">occurrence</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextExtractionWindow</span><span class="p">),</span> <span class="n">subcorpusPOS</span><span class="p">))</span>
+			<span class="k">else</span><span class="p">:</span>
+				<span class="n">fTrace</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fileList</span><span class="p">[</span><span class="n">m</span><span class="p">]</span> <span class="o">+</span> <span class="s">&#39;  &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outputContextPosition</span><span class="p">))</span> <span class="o">+</span> <span class="s">&#39; contexte</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+			
+			<span class="c"># ======== 3.  write output contexts to a file ============ #</span>
+			<span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">outputContext</span><span class="p">)</span>  <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">:</span> 
+				<span class="n">write2ContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">outContextFile</span><span class="p">,</span><span class="n">outputContext</span><span class="p">)</span>
+
+		<span class="n">fTrace</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+
+
+
+
+
+<span class="c">#__________________________________________________________#</span></div></div>
+<div class="viewcode-block" id="checkExistence"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.checkExistence">[docs]</a><span class="k">def</span> <span class="nf">checkExistence</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">,</span> <span class="n">currentAcceptation</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; if at least one acceptation rule shape is in the sub-crpus &#39;&#39;&#39;</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">currentAcceptation</span><span class="p">:</span>
+		<span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">cleanCorpusWords</span> <span class="p">:</span>
+			<span class="k">return</span> <span class="bp">True</span>
+	<span class="k">return</span> <span class="bp">False</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="validate_elmt"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.validate_elmt">[docs]</a><span class="k">def</span> <span class="nf">validate_elmt</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">,</span><span class="n">position</span><span class="p">,</span> <span class="n">elmt</span><span class="p">,</span> <span class="n">rejection</span> <span class="p">)</span> <span class="p">:</span>
+	<span class="sd">&#39;&#39;&#39; searching for a n-word pattern in the corpus caution to indexes in slices&#39;&#39;&#39;</span>
+	<span class="k">if</span> <span class="p">(</span> <span class="p">(</span> <span class="n">position</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">elmt</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span> <span class="n">elmt</span> <span class="o">==</span>   <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">position</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">elmt</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="p">(</span><span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">])):</span>
+			<span class="k">for</span> <span class="n">non_elmt</span> <span class="ow">in</span> <span class="n">rejection</span> <span class="p">:</span>
+				<span class="k">if</span><span class="p">(</span> <span class="n">non_elmt</span> <span class="o">==</span>   <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">position</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">non_elmt</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">+</span>  <span class="mi">1</span>  <span class="p">:</span> <span class="p">(</span> <span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="p">]</span> <span class="p">)</span> <span class="p">):</span>
+					<span class="k">return</span> <span class="mi">0</span>
+			<span class="k">return</span> <span class="mi">1</span>
+	<span class="k">return</span> <span class="mi">0</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="writeContext"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.writeContext">[docs]</a><span class="k">def</span> <span class="nf">writeContext</span><span class="p">(</span><span class="n">positionDepart</span><span class="p">,</span> <span class="n">winLength</span><span class="p">,</span> <span class="n">cleanCorpusWords</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; buils the context vector with position and word index, thisfunction should call the dictionnary class variable</span>
+<span class="sd">		The outputFilewritting is done during a higher step; because contexts are just Ko</span>
+<span class="sd">		NEW versions, use of a hash of list where entries are words and contain positions</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="c"># == defining parsing boundaries == #</span>
+	<span class="k">if</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">winLength</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+		<span class="n">positionDebut</span> <span class="o">=</span> <span class="mi">0</span> 
+		<span class="n">positionFin</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">)</span>
+	<span class="k">else</span><span class="p">:</span>
+		<span class="n">positionDebut</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">positionDepart</span><span class="p">)</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">winLength</span><span class="p">))</span> <span class="k">if</span> <span class="p">(</span> <span class="nb">int</span><span class="p">(</span><span class="n">positionDepart</span><span class="p">)</span> <span class="o">-</span> <span class="nb">int</span><span class="p">(</span><span class="n">winLength</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+		<span class="n">positionFin</span>   <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">positionDepart</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">winLength</span><span class="p">))</span> <span class="k">if</span> <span class="p">(</span> <span class="nb">int</span><span class="p">(</span><span class="n">positionDepart</span><span class="p">)</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">winLength</span><span class="p">))</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">)</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">)</span>
+	
+	<span class="c"># == start parsing == #</span>
+	<span class="n">contextWords</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+	<span class="n">contextWords</span><span class="p">[</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">positionDepart</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;0&#39;</span><span class="p">)</span>
+	
+	<span class="c">#______backwards context_____#</span>
+	<span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">positionDepart</span> <span class="o">-</span> <span class="mi">1</span> <span class="p">,</span> <span class="n">positionDebut</span> <span class="o">-</span> <span class="mi">1</span> <span class="p">,</span> <span class="o">-</span><span class="mi">1</span> <span class="p">):</span>
+		<span class="n">counter</span> <span class="o">-=</span> <span class="mi">1</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="s">&#39;--&#39;</span><span class="p">)</span> <span class="p">:</span> 
+			<span class="n">contextWords</span><span class="p">[</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>
+	
+	<span class="c">#____forward context______#</span>
+	<span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">positionDepart</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">positionFin</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+		<span class="n">counter</span> <span class="o">+=</span><span class="mi">1</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="s">&#39;--&#39;</span><span class="p">)</span> <span class="p">:</span>
+			<span class="n">contextWords</span><span class="p">[</span><span class="n">cleanCorpusWords</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>
+	
+	<span class="c"># ===== formating context line before returning ==== #</span>
+	<span class="n">contextLine</span> <span class="o">=</span> <span class="p">[];</span>
+	<span class="n">contextLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">positionDebut</span><span class="p">))</span>
+	<span class="n">contextLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">positionFin</span><span class="p">))</span>
+
+	<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">contextWords</span> <span class="p">:</span> 
+		 <span class="n">contextLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">+</span><span class="s">&#39;:&#39;</span><span class="o">+</span><span class="s">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">contextWords</span><span class="p">[</span><span class="n">item</span><span class="p">]))</span>
+
+	<span class="k">return</span> <span class="s">&#39;;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">contextLine</span><span class="p">)</span>
+		
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="write2ContextFile"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.write2ContextFile">[docs]</a><span class="k">def</span> <span class="nf">write2ContextFile</span><span class="p">(</span><span class="n">outContextFile</span><span class="p">,</span><span class="n">outputContext</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; appending one or several context in the context file&#39;&#39;&#39;</span>
+	<span class="c"># == removing redundancies in the list == #</span>
+	
+	<span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outContextFile</span><span class="p">)):</span>
+		<span class="n">fContext</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outContextFile</span> <span class="p">,</span> <span class="s">&#39;a&#39;</span><span class="p">)</span>
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="n">fContext</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outContextFile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span> 
+	
+	<span class="n">contextUniq</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">uniq</span><span class="p">(</span><span class="n">outputContext</span><span class="p">)</span>
+		
+	<span class="c">#for line in self.outputContext :</span>
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">contextUniq</span> <span class="p">:</span>
+		<span class="n">fContext</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+	<span class="n">fContext</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+	
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="buildCollocContext"><a class="viewcode-back" href="../extractContextCCM.html#extractContextCCM.buildCollocContext">[docs]</a><span class="k">def</span> <span class="nf">buildCollocContext</span><span class="p">(</span><span class="n">content</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	content = [[w1,w2,...][w1, w2,...]]</span>
+<span class="sd">	establishing collocation of 1-grams</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="n">lexiconGlobal</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+	<span class="n">contextAll</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+	<span class="k">for</span> <span class="n">lineNb</span><span class="p">,</span> <span class="n">lineContent</span>  <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+		<span class="k">for</span> <span class="n">pos_w1</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span><span class="o">-</span><span class="mi">2</span><span class="p">):</span>
+			<span class="k">for</span> <span class="n">pos_w2</span> <span class="ow">in</span> <span class="nb">range</span> <span class="p">(</span><span class="n">pos_w1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+				<span class="n">mot1</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">pos_w1</span><span class="p">]</span>
+				<span class="n">mot2</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="n">pos_w2</span><span class="p">]</span>
+				<span class="n">distance</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">pos_w2</span> <span class="o">-</span> <span class="n">pos_w1</span><span class="p">)</span>
+				<span class="n">pattern</span> <span class="o">=</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">mot1</span><span class="p">,</span> <span class="n">mot2</span><span class="p">)</span>
+				<span class="k">if</span> <span class="n">pattern</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">]:</span>
+					<span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">][</span><span class="n">pattern</span><span class="p">]</span> <span class="o">=</span> <span class="n">distance</span>
+				<span class="k">elif</span> <span class="nb">abs</span><span class="p">(</span><span class="n">distance</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">][</span><span class="n">pattern</span><span class="p">]):</span>
+					<span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">][</span><span class="n">pattern</span><span class="p">]</span> <span class="o">=</span> <span class="n">distance</span>
+		<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">contextAll</span><span class="p">[</span><span class="n">lineNb</span><span class="p">]:</span>
+			<span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">lexiconGlobal</span><span class="p">:</span>
+				<span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+	<span class="k">return</span> <span class="n">lexiconGlobal</span><span class="p">,</span> <span class="n">contextAll</span>
+	
+
+<span class="c">#____________________________________________________________#</span>
+
+	<span class="c">#def loadLexiconFile(self):</span>
+		<span class="c">#&#39;&#39;&#39;	lexicon file is written and loaded for every subcorpus</span>
+			<span class="c">#index, word and count are put in dictionnaries</span>
+			<span class="c">#return the index of the last item of the lexicon</span>
+		<span class="c">#&#39;&#39;&#39;</span>
+		<span class="c">#self.lastLexiconIndex = -1</span>
+		<span class="c">#self.contextLexicon = {}</span>
+		<span class="c">#self.contextLexiconSize = {}</span>
+		
+		<span class="c">#if ( os.path.exists(self.outLexiconFile) ):	</span>
+			<span class="c">##print(&#39;loading lexicon &#39;+ self.outLexiconFile + &#39; &#39; +  self.rule)</span>
+			<span class="c">#fLexicon = open(self.outLexiconFile, &#39;r&#39;)</span>
+			<span class="c">#lines = fLexicon.readlines()</span>
+			<span class="c">#fLexicon.close()</span>
+	
+			<span class="c">#for lexiconItem in lines:</span>
+				<span class="c">##print(lexiconItem)</span>
+				<span class="c">#self.contextLexicon[lexiconItem.rstrip().split(&#39; &#39;)[1]] = int(lexiconItem.rstrip().split(&#39; &#39;)[0])</span>
+				<span class="c">#self.contextLexiconSize[lexiconItem.rstrip().split(&#39; &#39;)[1]] = int(lexiconItem.rstrip().split(&#39; &#39;)[2])</span>
+				<span class="c">#if ( int(lexiconItem.rstrip().split(&#39; &#39;)[0]) &gt; self.lastLexiconIndex ) : </span>
+					<span class="c">#self.lastLexiconIndex = int(lexiconItem.rstrip().split(&#39; &#39;)[0])</span>
+					<span class="c">##print(self.lastIndex)</span>
+								
+	<span class="c">#________________________________________________________________#</span>
+	
+	<span class="c">#~ def write2LexiconFile(self):</span>
+		<span class="c">#~ &#39;&#39;&#39;</span>
+			<span class="c">#~ lexicon is saved and loaded for each subcorpus</span>
+			<span class="c">#~ index  word and counter</span>
+			<span class="c">#~ very time consuming !!! have to be improved !!</span>
+		<span class="c">#~ &#39;&#39;&#39;</span>
+		<span class="c">#~ #print(&#39;writting to lexicon &#39;+ self.rule)</span>
+		<span class="c">#~ fLexicon = open(self.outLexiconFile, &#39;w&#39;)</span>
+		<span class="c">#~ for token in self.contextLexiconSize:</span>
+			<span class="c">#~ fLexicon.write(str(self.contextLexicon[token]) + &#39; &#39; +  str(token) + &#39; &#39; + str(self.contextLexiconSize[token]) + &#39;\n&#39;)</span>
+		<span class="c">#~ fLexicon.close()</span>
+	<span class="c">#________________________________________________________________#</span>
+	
+	<span class="c">#~ def processTreeTaggerOnContext(self):</span>
+		<span class="c">#~ &#39;&#39;&#39; </span>
+			<span class="c">#~ realizes the treetagging of subcorpus, </span>
+			<span class="c">#~ conserve the aDV, NOM and VER Part-Of-Speech </span>
+			<span class="c">#~ and return a new subcorpus list </span>
+		<span class="c">#~ &#39;&#39;&#39;	</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ # == whatever the length of the subcorpus or windonws length, the wole subcorpus is tree-tagged == #</span>
+		<span class="c">#~ fTreeTagger = open(self.outContextTempFile, &quot;w&quot;)</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ # == write context one word by line == #</span>
+		<span class="c">#~ for word in self.subcorpus:</span>
+			<span class="c">#~ fTreeTagger.write(RCutils.bdlex2win(word) + &#39;\n&#39;)</span>
+		<span class="c">#~ fTreeTagger.close()</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ # == process tree-tagger a tenter == #</span>
+		<span class="c">#~ POS = commands.getoutput(self.expe.commandTT + &#39; &#39; + self.outContextTempFile)</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ for index,tag in enumerate(POS.split(&#39;\n&#39;)):</span>
+			<span class="c">#~ # == for special cases inthe treetagging return == #</span>
+			<span class="c">#~ token = tag.split(&#39;\t&#39;)[2] </span>
+			<span class="c">#~ if ( &#39;|&#39; in tag.split(&#39;\t&#39;)[2]) :</span>
+				<span class="c">#~ token = tag.split(&#39;\t&#39;)[2].split(&#39;|&#39;)[1]</span>
+			<span class="c">#~ </span>
+			<span class="c">#~ # == building the tree-tagged subcorpus == #</span>
+			<span class="c">#~ if ( &#39;ADJ&#39; in tag.split(&#39;\t&#39;)[1]) or (&#39;NOM&#39; in tag.split(&#39;\t&#39;)[1]) or (&#39;VER&#39; in tag.split(&#39;\t&#39;)[1]): 					</span>
+				<span class="c">#~ self.outContextFiltered.append(RCutils.win2bdlex(token))</span>
+			<span class="c">#~ else:</span>
+				<span class="c">#~ self.outContextFiltered.append(&#39;--&#39;)</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ return self.outContextFiltered</span>
+		
+	<span class="c">#___________________________________________________________#</span>
+
+	<span class="c">#~ def addAndGetLexiconItem(self, currentWord):</span>
+		<span class="c">#~ </span>
+		<span class="c">#~ &#39;&#39;&#39; the lexicon is composed of two dictionnaries</span>
+			<span class="c">#~ the first one is an index of words </span>
+			<span class="c">#~ the second one contains the number of occurrences of the word</span>
+			<span class="c">#~ if the name is in the dict, the index is returned</span>
+		<span class="c">#~ &#39;&#39;&#39;</span>
+		<span class="c">#~ if not (self.contextLexicon.has_key(currentWord)):</span>
+			<span class="c">#~ self.lastLexiconIndex += 1</span>
+			<span class="c">#~ self.contextLexicon[currentWord] = self.lastLexiconIndex</span>
+			<span class="c">#~ self.contextLexiconSize[currentWord] = 1</span>
+		<span class="c">#~ else:</span>
+			<span class="c">#~ self.contextLexiconSize[currentWord] += 1</span>
+		<span class="c">#~ return  str(self.contextLexicon[currentWord])</span>
+</pre></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

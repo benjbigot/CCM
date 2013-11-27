@@ -1,0 +1,339 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>utilsCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for utilsCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">commands</span><span class="o">,</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">random</span> <span class="kn">import</span> <span class="n">choice</span>
+
+
+
+<span class="c">#=========================================#</span>
+<div class="viewcode-block" id="loadContentAndTags"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.loadContentAndTags">[docs]</a><span class="k">def</span> <span class="nf">loadContentAndTags</span><span class="p">(</span><span class="n">fileDir</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	just have the directory</span>
+<span class="sd">	should find three files</span>
+<span class="sd">	POSITIVE.phr</span>
+<span class="sd">	NEGATIVE.phr</span>
+<span class="sd">	NEUTRAL.phr</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="n">fileList</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;POSITIVE.phr&#39;</span><span class="p">,</span> <span class="s">&#39;NEGATIVE.phr&#39;</span><span class="p">,</span> <span class="s">&#39;NEUTRAL.phr&#39;</span><span class="p">]</span>
+	<span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">fileList</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fileDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="nb">file</span><span class="p">)</span> <span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&quot;file &quot;</span> <span class="o">+</span> <span class="nb">file</span> <span class="o">+</span> <span class="s">&quot; does not exists&quot;</span><span class="p">)</span>
+				<span class="nb">exit</span><span class="p">()</span>
+	
+	<span class="c"># == on charge les fichiers == #</span>
+	<span class="n">corpusContent</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="n">labelList</span>     <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="nb">file</span> <span class="ow">in</span> <span class="n">fileList</span><span class="p">:</span> 
+		<span class="n">fIn</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fileDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="nb">file</span> <span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+		
+	
+
+	<span class="n">Flist</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fileList</span> <span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+	<span class="n">Flist_content</span> <span class="o">=</span> <span class="n">Flist</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">Flist_content</span><span class="p">:</span>
+		<span class="n">labelList</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+		<span class="n">content</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+		<span class="c"># suppose to contain only one line</span>
+		<span class="n">corpusContent</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s">r&#39; \+&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+	<span class="k">return</span> <span class="n">corpusContent</span><span class="p">,</span> <span class="n">labelList</span>
+
+<span class="c">#=========================================#</span>
+</div>
+<div class="viewcode-block" id="loadFromFileList"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.loadFromFileList">[docs]</a><span class="k">def</span> <span class="nf">loadFromFileList</span><span class="p">(</span><span class="n">fileList</span><span class="p">)</span> <span class="p">:</span>
+	<span class="n">corpusContent</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="n">labelList</span>     <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">fileList</span> <span class="p">:</span>
+		<span class="n">fn</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">inputDirectory</span> <span class="o">+</span><span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">f</span><span class="p">)</span>
+		<span class="n">tempLine</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>                        
+		<span class="n">corpusContent</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s">r&#39; \+&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">,</span> <span class="n">tempLine</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+		<span class="n">fn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	<span class="k">return</span> <span class="n">corpusContent</span><span class="p">,</span> <span class="n">labelList</span>
+
+<span class="c">#=========================================#</span>
+</div>
+<div class="viewcode-block" id="loadFileList"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.loadFileList">[docs]</a><span class="k">def</span> <span class="nf">loadFileList</span><span class="p">(</span><span class="n">fN</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; fileList is a two-column file</span>
+<span class="sd">		col 1 is the file name</span>
+<span class="sd">		col 2 is a label</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fN</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">fileDesc</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fN</span><span class="p">,</span> <span class="s">&quot;r&quot;</span><span class="p">)</span>
+		<span class="n">data</span>     <span class="o">=</span> <span class="n">fileDesc</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+		<span class="n">fileDesc</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+		<span class="n">data2</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span> <span class="p">:</span> 
+			<span class="n">data2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39; &#39;</span><span class="p">))</span>
+		<span class="k">return</span> <span class="n">data2</span>
+
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="k">print</span><span class="p">(</span> <span class="s">&#39;File &#39;</span> <span class="o">+</span> <span class="n">fN</span> <span class="o">+</span> <span class="s">&#39; does not exist</span><span class="se">\n</span><span class="s">Exiting the program...&#39;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+		
+<span class="c">#____________________________________#</span>
+</div>
+<div class="viewcode-block" id="loadFile"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.loadFile">[docs]</a><span class="k">def</span> <span class="nf">loadFile</span><span class="p">(</span><span class="n">fN</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; Loads the content of a file in a list,</span>
+<span class="sd">		quits if the file does not exist</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">fN</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">fileDesc</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">fN</span><span class="p">,</span> <span class="s">&quot;r&quot;</span><span class="p">)</span>
+		<span class="n">data</span>     <span class="o">=</span> <span class="n">fileDesc</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>	
+		<span class="n">data2</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="n">fileDesc</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		
+		<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">data</span> <span class="p">:</span> 
+			<span class="n">data2</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+		<span class="k">return</span> <span class="n">data2</span>
+		
+	<span class="k">else</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span> <span class="s">&#39;File &#39;</span> <span class="o">+</span> <span class="n">fN</span> <span class="o">+</span> <span class="s">&#39; does not exist</span><span class="se">\n</span><span class="s">Exiting the program...&#39;</span><span class="p">)</span>
+		<span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+
+<span class="c">#_______________________________________#</span>
+</div>
+<div class="viewcode-block" id="getCorpusDirContent"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.getCorpusDirContent">[docs]</a><span class="k">def</span> <span class="nf">getCorpusDirContent</span><span class="p">(</span><span class="n">dirCorpus</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; load all text file from a directory in a tuple</span>
+<span class="sd">		Words are separated, if cleaning rules have to be done it&#39;s here</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="n">corpusContent</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">dirCorpus</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()):</span>
+		<span class="c"># == one line per corpus file == #</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">files</span> <span class="p">:</span>
+			<span class="n">fn</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span> <span class="n">root</span> <span class="o">+</span> <span class="n">i</span> <span class="p">,</span> <span class="s">&quot;r&quot;</span><span class="p">)</span>
+			<span class="c"># has to be tested #</span>
+			<span class="n">tempLine</span> <span class="o">=</span> <span class="n">fn</span><span class="o">.</span><span class="n">read</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;;&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;&amp;amp;&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;&amp;gt&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;&amp;lt&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;(&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;)&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;!&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;?&#39;</span><span class="p">,</span><span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">,</span><span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;-&#39;</span><span class="p">,</span><span class="s">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+			<span class="n">corpusContent</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s">r&#39; \+&#39;</span><span class="p">,</span> <span class="s">&#39; &#39;</span><span class="p">,</span> <span class="n">tempLine</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+			<span class="c">#corpusContent.append(fn.read().replace(&#39;\n&#39;, &#39; &#39;).replace(&#39;  &#39;, &#39; &#39;).split())</span>
+			<span class="n">fn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span> 
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">corpusContent</span><span class="p">))</span> <span class="o">+</span> <span class="s">&#39; files&#39;</span><span class="p">)</span>		
+	<span class="k">return</span> <span class="n">corpusContent</span><span class="p">,</span> <span class="n">files</span>
+			
+<span class="c">#_____________________________________________________________________#</span>
+</div>
+<div class="viewcode-block" id="bdlex2win"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.bdlex2win">[docs]</a><span class="k">def</span> <span class="nf">bdlex2win</span><span class="p">(</span><span class="n">mot</span><span class="p">):</span>
+	<span class="n">newMot</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">mot</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;e1&#39;</span><span class="p">,</span><span class="s">&#39;é&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;e2&#39;</span><span class="p">,</span><span class="s">&#39;è&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;e3&#39;</span><span class="p">,</span><span class="s">&#39;ê&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;e4&#39;</span><span class="p">,</span><span class="s">&#39;ë&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;a1&#39;</span><span class="p">,</span><span class="s">&#39;á&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;a2&#39;</span><span class="p">,</span><span class="s">&#39;à&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;a3&#39;</span><span class="p">,</span><span class="s">&#39;â&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;a4&#39;</span><span class="p">,</span><span class="s">&#39;ä&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;i1&#39;</span><span class="p">,</span><span class="s">&#39;í&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;i2&#39;</span><span class="p">,</span><span class="s">&#39;ì&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;i3&#39;</span><span class="p">,</span><span class="s">&#39;î&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;i4&#39;</span><span class="p">,</span><span class="s">&#39;ï&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;u1&#39;</span><span class="p">,</span><span class="s">&#39;ú&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;u2&#39;</span><span class="p">,</span><span class="s">&#39;ù&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;u3&#39;</span><span class="p">,</span><span class="s">&#39;û&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;u4&#39;</span><span class="p">,</span><span class="s">&#39;ü&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;o1&#39;</span><span class="p">,</span><span class="s">&#39;ó&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;o2&#39;</span><span class="p">,</span><span class="s">&#39;ò&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;o3&#39;</span><span class="p">,</span><span class="s">&#39;ô&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;o4&#39;</span><span class="p">,</span><span class="s">&#39;ö&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;c5&#39;</span><span class="p">,</span> <span class="s">&#39;ç&#39;</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">newMot</span>
+	
+<span class="c">#__________________________________________________________#</span>
+</div>
+<div class="viewcode-block" id="win2bdlex"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.win2bdlex">[docs]</a><span class="k">def</span> <span class="nf">win2bdlex</span><span class="p">(</span><span class="n">mot</span><span class="p">):</span>
+	<span class="n">newMot</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">mot</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;é&#39;</span><span class="p">,</span><span class="s">&#39;e1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;è&#39;</span><span class="p">,</span><span class="s">&#39;e2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ê&#39;</span><span class="p">,</span><span class="s">&#39;e3&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ë&#39;</span><span class="p">,</span><span class="s">&#39;e4&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;á&#39;</span><span class="p">,</span><span class="s">&#39;a1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;à&#39;</span><span class="p">,</span><span class="s">&#39;a2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;â&#39;</span><span class="p">,</span><span class="s">&#39;a3&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ä&#39;</span><span class="p">,</span><span class="s">&#39;a4&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;í&#39;</span><span class="p">,</span><span class="s">&#39;i1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ì&#39;</span><span class="p">,</span><span class="s">&#39;i2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;î&#39;</span><span class="p">,</span><span class="s">&#39;i3&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ï&#39;</span><span class="p">,</span><span class="s">&#39;i4&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ú&#39;</span><span class="p">,</span><span class="s">&#39;u1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ù&#39;</span><span class="p">,</span><span class="s">&#39;u2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;û&#39;</span><span class="p">,</span><span class="s">&#39;u3&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ü&#39;</span><span class="p">,</span><span class="s">&#39;u4&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ó&#39;</span><span class="p">,</span><span class="s">&#39;o1&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ò&#39;</span><span class="p">,</span><span class="s">&#39;o2&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ô&#39;</span><span class="p">,</span><span class="s">&#39;o3&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ö&#39;</span><span class="p">,</span><span class="s">&#39;o4&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s">&#39;ç&#39;</span><span class="p">,</span><span class="s">&#39;c5&#39;</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">newMot</span>
+
+<span class="c">#__________________________________________________________#</span>
+</div>
+<div class="viewcode-block" id="processTreeTaggerOnContext"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.processTreeTaggerOnContext">[docs]</a><span class="k">def</span> <span class="nf">processTreeTaggerOnContext</span><span class="p">(</span><span class="n">subCorpus</span><span class="p">,</span><span class="n">expe</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; </span>
+<span class="sd">		realizes the treetagging of subcorpus, </span>
+<span class="sd">		conserve the aDV, NOM and VER Part-Of-Speech </span>
+<span class="sd">		and return a new subcorpus list </span>
+<span class="sd">	&#39;&#39;&#39;</span>	
+		
+	<span class="c"># == whatever the length of the subcorpus or windonws length, the wole subcorpus is tree-tagged == #</span>
+	<span class="c"># a tester #</span>
+	<span class="n">outContextFiltered</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="n">idFile</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">())</span>
+	<span class="n">outContextTempFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">idFile</span> <span class="o">+</span> <span class="s">&#39;.temp&#39;</span>
+	<span class="n">fTreeTagger</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span> <span class="n">outContextTempFile</span> <span class="p">,</span> <span class="s">&quot;w&quot;</span><span class="p">)</span>
+		
+	<span class="c"># == write context one word by line == #</span>
+	<span class="k">for</span> <span class="n">word</span> <span class="ow">in</span> <span class="n">subCorpus</span><span class="p">:</span>
+		<span class="n">fTreeTagger</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">bdlex2win</span><span class="p">(</span><span class="n">word</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+	<span class="n">fTreeTagger</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	
+	<span class="c"># == process tree-tagger a tenter == #</span>
+	<span class="n">POS</span> <span class="o">=</span> <span class="n">commands</span><span class="o">.</span><span class="n">getoutput</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">commandTT</span> <span class="o">+</span> <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="n">outContextTempFile</span><span class="p">)</span>
+	
+	<span class="k">for</span> <span class="n">index</span><span class="p">,</span><span class="n">tag</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">POS</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)):</span>
+		<span class="c"># == for special cases inthe treetagging return == #</span>
+		<span class="n">token</span> <span class="o">=</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span> 
+		<span class="k">if</span> <span class="p">(</span> <span class="s">&#39;|&#39;</span> <span class="ow">in</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">])</span> <span class="p">:</span>
+			<span class="n">token</span> <span class="o">=</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;|&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+			
+		<span class="c"># == building the tree-tagged subcorpus == #</span>
+		<span class="k">if</span> <span class="p">(</span> <span class="s">&#39;ADJ&#39;</span> <span class="ow">in</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span><span class="s">&#39;NOM&#39;</span> <span class="ow">in</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span> <span class="ow">or</span> <span class="p">(</span><span class="s">&#39;VER&#39;</span> <span class="ow">in</span> <span class="n">tag</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\t</span><span class="s">&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]):</span> 					
+			<span class="n">outContextFiltered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">win2bdlex</span><span class="p">(</span><span class="n">token</span><span class="p">))</span>
+		<span class="k">else</span><span class="p">:</span>
+			<span class="n">outContextFiltered</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;--&#39;</span><span class="p">)</span>
+	<span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">outContextTempFile</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">outContextFiltered</span>
+
+<span class="c">#__________________________________________________________#</span>
+</div>
+<div class="viewcode-block" id="processCorpusDirContentPOS"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.processCorpusDirContentPOS">[docs]</a><span class="k">def</span> <span class="nf">processCorpusDirContentPOS</span><span class="p">(</span><span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">expe</span><span class="p">)</span> <span class="p">:</span>
+	<span class="n">corpusDirContentPOS</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">processTreeTagging</span> <span class="o">==</span> <span class="s">&#39;True&#39;</span><span class="p">):</span>
+		<span class="k">for</span> <span class="n">subcorpus</span> <span class="ow">in</span> <span class="n">corpusDirContent</span> <span class="p">:</span>
+			<span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;.&#39;</span><span class="p">)</span>
+			<span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+			
+			<span class="n">outContextFiltered</span> <span class="o">=</span> <span class="p">[]</span>
+			<span class="n">outContextFiltered</span> <span class="o">=</span> <span class="n">processTreeTaggerOnContext</span><span class="p">(</span><span class="n">subcorpus</span><span class="p">,</span><span class="n">expe</span><span class="p">)</span>
+			<span class="n">corpusDirContentPOS</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">outContextFiltered</span><span class="p">)</span>
+	<span class="k">elif</span> <span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">processTreeTagging</span> <span class="o">==</span> <span class="s">&#39;False&#39;</span><span class="p">):</span>
+		<span class="n">corpusDirContentPOS</span> <span class="o">=</span> <span class="n">corpusDirContent</span>
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="k">print</span> <span class="p">(</span><span class="s">&#39;check pos tagging rule : &#39;</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">processTreeTagging</span> <span class="p">)</span>
+	<span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>	
+	<span class="k">return</span> <span class="n">corpusDirContentPOS</span>
+	
+<span class="c">#__________________________________________________________</span>
+	</div>
+<div class="viewcode-block" id="isAlreadyDone"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.isAlreadyDone">[docs]</a><span class="k">def</span> <span class="nf">isAlreadyDone</span><span class="p">(</span><span class="n">doneFile</span><span class="p">,</span> <span class="n">corpusToDo</span><span class="p">):</span>
+	<span class="c"># check is corpusToDo is an element of DoneFile</span>
+	<span class="n">alreadyDone</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">doneFile</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">done</span> <span class="o">=</span> <span class="n">loadFile</span><span class="p">(</span><span class="n">doneFile</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">done</span> <span class="p">:</span>
+			<span class="n">alreadyDone</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+
+		<span class="k">if</span> <span class="n">corpusToDo</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">alreadyDone</span> <span class="p">:</span>
+			<span class="k">return</span> <span class="mi">0</span>
+		<span class="k">else</span> <span class="p">:</span> 
+			<span class="k">return</span> <span class="mi">1</span>
+	<span class="k">else</span> <span class="p">:</span> 
+		<span class="k">return</span> <span class="mi">0</span>
+<span class="c">#__________________________________________________________		</span>
+</div>
+<div class="viewcode-block" id="uniq"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.uniq">[docs]</a><span class="k">def</span> <span class="nf">uniq</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">idfun</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span> 
+	<span class="n">seen</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">seq</span><span class="p">:</span>
+		<span class="n">marker</span> <span class="o">=</span> <span class="n">item</span>
+		<span class="c"># in old Python versions:</span>
+		<span class="c"># if seen.has_key(marker)</span>
+		<span class="c"># but in new ones:</span>
+		<span class="k">if</span> <span class="n">marker</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span> <span class="k">continue</span>
+		<span class="n">seen</span><span class="p">[</span><span class="n">marker</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+		<span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">result</span>		
+		
+<span class="c">#__________________________________________________________		</span>
+</div>
+<div class="viewcode-block" id="removeRedundancy"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.removeRedundancy">[docs]</a><span class="k">def</span> <span class="nf">removeRedundancy</span><span class="p">(</span><span class="n">orig</span><span class="p">,</span> <span class="n">dest</span><span class="p">):</span>
+	<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span> <span class="p">:</span>
+		<span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">orig</span> <span class="p">,</span> <span class="n">dest</span><span class="p">)</span>
+		<span class="n">content</span> <span class="o">=</span> <span class="n">loadFile</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span>
+		<span class="n">keys</span> <span class="o">=</span> <span class="p">{}</span>
+		<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">content</span> <span class="p">:</span> 
+			<span class="n">keys</span><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()]</span> <span class="o">=</span> <span class="mi">1</span>
+
+		<span class="c"># verifier les lignes mal formatées : les indicateurs de champs doivent être unique</span>
+		<span class="n">fOut</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">orig</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">);</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">keys</span> <span class="p">:</span> 
+			<span class="n">fOut</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">)</span>
+		<span class="n">fOut</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span>
+
+<span class="c">#__________________________________________________________		</span>
+</div>
+<div class="viewcode-block" id="takeRandomContext"><a class="viewcode-back" href="../utilsCCM.html#utilsCCM.takeRandomContext">[docs]</a><span class="k">def</span> <span class="nf">takeRandomContext</span><span class="p">(</span><span class="n">contextFile</span><span class="p">,</span> <span class="n">contextNumber</span><span class="p">):</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">contextFile</span><span class="p">))</span> <span class="p">:</span>
+		<span class="c">#lines = [l.strip() for l in open(contextFile , &#39;r&#39;)]</span>
+		<span class="n">fContext</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">contextFile</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+		<span class="n">lines</span> <span class="o">=</span> <span class="n">fContext</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+		<span class="n">fContext</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+		<span class="n">takenContext</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">contextNumber</span><span class="p">)):</span>
+			<span class="n">subLine</span> <span class="o">=</span> <span class="n">choice</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+			<span class="k">if</span> <span class="n">subLine</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">takenContext</span> <span class="p">:</span>
+				<span class="n">takenContext</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subLine</span><span class="p">)</span>
+	<span class="k">return</span> <span class="n">takenContext</span>
+</pre></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

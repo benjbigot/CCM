@@ -1,0 +1,241 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>buildCCMRepLab &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for buildCCMRepLab</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="c">#import argparse</span>
+<span class="c">#import extractContext</span>
+<span class="c">#import computeSVD</span>
+<span class="c">#import threadPool</span>
+<span class="c">#import computeRejection</span>
+
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">optparse</span> <span class="kn">import</span> <span class="n">OptionParser</span>
+<span class="kn">import</span> <span class="nn">configServerCCM</span>
+<span class="kn">import</span> <span class="nn">extractContextCCM</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="kn">import</span> <span class="nn">buildMatrixCCM</span>
+<span class="kn">import</span> <span class="nn">processSvdCCM</span>
+<span class="kn">import</span> <span class="nn">processRejectionEntitySpaceCCM</span><span class="o">,</span> <span class="nn">processRejectionCommonSpaceCCM</span>
+<span class="kn">import</span> <span class="nn">learnSVMmodelCCM</span>
+<span class="kn">import</span> <span class="nn">processGmmCCM</span>
+
+<span class="c"># ==================== Launching Zone ==================== #</span>
+<div class="viewcode-block" id="extractContext"><a class="viewcode-back" href="../buildCCMRepLab.html#buildCCMRepLab.extractContext">[docs]</a><span class="k">def</span> <span class="nf">extractContext</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="c"># corpusList                    : list of directories paths</span>
+	<span class="c"># corpusDirContent              : list tuples of words, one line is one document</span>
+	<span class="c"># corpusDirContentPOS   : corpusDirContent woth POS filtering</span>
+	<span class="c"># subcorpus                     : one tuple is one document words</span>
+	<span class="c"># doneFile                              : contains the list of already processed corpus dir of corpusList</span>
+	
+	<span class="c"># TODO : garder une trace de l&#39;indice du document dans lesquels un contexte a été trouvé</span>
+	<span class="c"># histoire de faire quelques stats.</span>
+	
+	<span class="c">#~ # == extracting contexts == #</span>
+	<span class="k">for</span> <span class="n">corpus</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">corpusList</span><span class="p">:</span>
+		<span class="c">#~ print (expe.corpusList, corpus)</span>
+		<span class="c">#~ # == prepare documents content == #</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;=== processing &#39;</span> <span class="o">+</span> <span class="n">corpus</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39; ====&#39;</span><span class="p">)</span>
+		<span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">fileList</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">getCorpusDirContent</span><span class="p">(</span><span class="n">corpus</span><span class="p">)</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; processing POS tagging&#39;</span><span class="p">)</span>
+		<span class="n">corpusDirContentPOS</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">processCorpusDirContentPOS</span><span class="p">(</span><span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">expe</span><span class="p">)</span>
+		<span class="c">#~ # == running multi threads context extraction == #</span>
+		
+		<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span><span class="p">:</span>
+			<span class="n">doneFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;.subcorpusDone&#39;</span>
+			
+			<span class="k">if</span> <span class="p">(</span><span class="n">utilsCCM</span><span class="o">.</span><span class="n">isAlreadyDone</span><span class="p">(</span><span class="n">doneFile</span><span class="p">,</span> <span class="n">corpus</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;Active Threads : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; - processing &#39;</span> <span class="o">+</span> <span class="n">rule</span><span class="p">)</span>
+				
+				<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">):</span>
+					<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+					
+				<span class="c"># == declare an threading entity class == #</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">extractContextCCM</span><span class="o">.</span><span class="n">extractContext</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">corpusDirContentPOS</span><span class="p">,</span>  <span class="n">corpus</span> <span class="p">,</span> <span class="n">expe</span><span class="p">,</span><span class="n">fileList</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="n">rule</span>  <span class="o">+</span> <span class="s">&#39; already done&#39;</span><span class="p">)</span>
+				
+		<span class="c">#~ # == waiting loop == #</span>
+		<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+	<span class="c"># == removing redundant contexts == #</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">print</span> <span class="p">(</span><span class="s">&#39;--&gt; &#39;</span><span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;: removing redundancy in context files&#39;</span><span class="p">)</span>
+		<span class="n">contextFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span>
+		<span class="n">tempFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="o">+</span><span class="s">&#39;.temp&#39;</span>
+		<span class="n">utilsCCM</span><span class="o">.</span><span class="n">removeRedundancy</span><span class="p">(</span> <span class="n">contextFile</span><span class="p">,</span> <span class="n">tempFile</span><span class="p">)</span>
+
+
+<span class="c"># ================== extraction par fichier text ========================== #</span>
+
+
+
+
+
+
+<span class="c">#========================== Main Routine ========================#</span></div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+	<span class="n">usage</span> <span class="o">=</span> <span class="s">&quot;usage: %prog -c config_file -l speaker_rule&quot;</span>
+	<span class="n">parser</span> <span class="o">=</span> <span class="n">OptionParser</span><span class="p">(</span><span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-c&quot;</span><span class="p">,</span> <span class="s">&quot;--config&quot;</span><span class="p">,</span>  <span class="n">dest</span><span class="o">=</span><span class="s">&quot;config&quot;</span><span class="p">,</span>  <span class="n">help</span> <span class="o">=</span><span class="s">&quot;configuration file&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-s&quot;</span><span class="p">,</span> <span class="s">&quot;--subTask&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;subTask&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;optional C:M:J:L:G:S Context Matrix reJection svmmodeL Gmmmodel SameSpace&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-l&quot;</span><span class="p">,</span> <span class="s">&quot;--listSpeaker&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;spkList&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;if defined, speaker list is used instead&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-a&quot;</span><span class="p">,</span> <span class="s">&quot;--acceptCorpus&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;acceptCorpusList&quot;</span><span class="p">,</span>  <span class="n">help</span><span class="o">=</span><span class="s">&quot;if defined, speaker list is used instead&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-r&quot;</span><span class="p">,</span> <span class="s">&quot;--rejectCorpus&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;rejectCorpusList&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;if defined, speaker list is used instead&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-t&quot;</span><span class="p">,</span> <span class="s">&quot;--tag&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;tag&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;if defined, speaker list is used instead&quot;</span><span class="p">)</span>
+
+	<span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+
+	<span class="c"># == loading configuration parameters (-s arguments)  == #      </span>
+	<span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">config</span> <span class="o">==</span> <span class="bp">None</span> <span class="p">:</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&quot;configuraton file is not optionnal &quot;</span><span class="p">)</span>
+		<span class="nb">exit</span><span class="p">()</span>
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="n">expe</span> <span class="o">=</span> <span class="n">configServerCCM</span><span class="o">.</span><span class="n">Configuration</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+
+	<span class="c"># == overwrite spkList (-l option) == #</span>
+	<span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">spkList</span> <span class="o">!=</span> <span class="bp">None</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&quot;rule list passed as an option &quot;</span><span class="o">+</span>  <span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span>
+			<span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">itemList</span><span class="p">,</span>  <span class="n">expe</span><span class="o">.</span><span class="n">acceptation</span><span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejection</span><span class="p">)</span> <span class="o">=</span> <span class="n">configServerCCM</span><span class="o">.</span><span class="n">loadRules</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span>
+
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span> <span class="p">(</span><span class="s">&quot;speaker list file  &quot;</span>  <span class="o">+</span> <span class="n">options</span><span class="o">.</span><span class="n">spkList</span> <span class="o">+</span> <span class="s">&quot; does not exists. exiting&quot;</span><span class="p">)</span>
+			<span class="nb">exit</span><span class="p">()</span>
+
+
+	<span class="c"># ________= pour la liste de fichiers d&#39;acceptation =_________#</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;__extracting accepation context__&#39;</span><span class="p">)</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">corpusList</span> <span class="o">=</span> <span class="p">[</span><span class="n">options</span><span class="o">.</span><span class="n">acceptCorpusList</span><span class="p">]</span>
+	<span class="k">print</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">corpusList</span> <span class="p">)</span> 
+	<span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="o">=</span> <span class="s">&#39;.accept.context&#39;</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span> <span class="o">=</span> <span class="s">&#39;.accept.lexicon&#39;</span>
+	<span class="n">extractContext</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+	<span class="n">contextGlobal</span>     <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span> <span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span><span class="p">)</span>
+	<span class="n">lexicon</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexicon</span><span class="p">(</span><span class="n">contextGlobal</span><span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">stopList</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+	<span class="n">lexiconSorted</span>   <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">getSortedLexicon</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span>
+	<span class="n">lexiconPosition</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexiconPositionTable</span><span class="p">(</span><span class="n">lexiconSorted</span><span class="p">)</span>
+	<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">writeLexicon</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span>  <span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span> <span class="p">,</span> <span class="n">lexicon</span><span class="p">,</span> <span class="n">lexiconSorted</span><span class="p">)</span>
+
+	<span class="c">#contextAccept = buildMatrixCCM.loadContextFile(expe.contextDir + expe.rule +  expe.contextExt )</span>
+
+	<span class="c"># _________= pour la liste de fichiers de rejection =__________ #</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;__extracting rejection context__&#39;</span><span class="p">)</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">corpusList</span> <span class="o">=</span> <span class="p">[</span><span class="n">options</span><span class="o">.</span><span class="n">rejectCorpusList</span><span class="p">]</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="o">=</span> <span class="s">&#39;.reject.context&#39;</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span> <span class="o">=</span> <span class="s">&#39;.reject.lexicon&#39;</span>
+	<span class="n">extractContext</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+	<span class="c">#contextReject     = buildMatrixCCM.loadContextFile(expe.contextDir + expe.rule +  expe.contextExt )</span>
+	<span class="c"># == corpus list est un chemin vers un repertoire == #</span>
+	<span class="n">contextGlobal</span>     <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span> <span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span><span class="p">)</span>
+	<span class="n">lexicon</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexicon</span><span class="p">(</span><span class="n">contextGlobal</span><span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">stopList</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+	<span class="n">lexiconSorted</span>   <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">getSortedLexicon</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span>
+	<span class="n">lexiconPosition</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexiconPositionTable</span><span class="p">(</span><span class="n">lexiconSorted</span><span class="p">)</span>
+	<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">writeLexicon</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span>  <span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span> <span class="p">,</span> <span class="n">lexicon</span><span class="p">,</span> <span class="n">lexiconSorted</span><span class="p">)</span>
+
+	<span class="k">print</span> <span class="n">options</span><span class="o">.</span><span class="n">tag</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="o">=</span> <span class="s">&#39;.context&#39;</span>
+	<span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span> <span class="o">=</span> <span class="s">&#39;.lexicon&#39;</span>
+	<span class="n">t</span> <span class="o">=</span> <span class="n">processRejectionCommonSpaceCCM</span><span class="o">.</span><span class="n">writeReject</span><span class="p">(</span><span class="n">expe</span><span class="p">,</span> <span class="p">[</span><span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span><span class="s">&#39;.accept&#39;</span> <span class="p">,</span> <span class="n">options</span><span class="o">.</span><span class="n">tag</span> <span class="o">+</span> <span class="s">&#39;.reject&#39;</span> <span class="p">])</span>
+	<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

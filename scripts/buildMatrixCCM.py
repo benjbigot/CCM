@@ -226,8 +226,8 @@ def buildCollocMatrix(lexicon, contextVect):
 		currentContext = contextVect[i]
 		for item in sortedLexicon :
 			if item in currentContext :
-				currentLine.append(currentContext[item]
-			else:
+				currentLine.append(currentContext[item])
+			else :
 				currentLine.append(0)
 	
 	

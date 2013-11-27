@@ -1,0 +1,326 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>buildMatrixCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for buildMatrixCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="kn">import</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">math</span><span class="o">,</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s">&#39;/local_disk/hera2/PERCOL/bigot/PlateformeRecoName/lib/sparsesvd/lib.linux-x86_64-2.6&#39;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">scipy.sparse</span>
+<span class="kn">import</span> <span class="nn">sparsesvd</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="c">#------------------#</span>
+
+<div class="viewcode-block" id="rawMatrix"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.rawMatrix">[docs]</a><span class="k">class</span> <span class="nc">rawMatrix</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>
+	<span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rule</span> <span class="p">,</span> <span class="n">expe</span><span class="p">):</span>
+		<span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">rule</span> 				<span class="o">=</span> <span class="n">rule</span> 
+		<span class="bp">self</span><span class="o">.</span><span class="n">expe</span> 				<span class="o">=</span> <span class="n">expe</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">contextFile</span>   		<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconFile</span>   		<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">outMatrixFile</span> 		<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rawMatDir</span>  <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">rawMatExt</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">stopList</span>      		<span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">stopList</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">winLength</span> 			<span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">contextBuildMatrixWindow</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconCutoff</span> 		<span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconCutoff</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">context</span>			<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span> 			<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexicon4write</span> 		<span class="o">=</span> <span class="p">[]</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span> 	<span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">cutoffSVD</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">VtFile</span>     <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">svdDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">svdExt</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">redMatFile</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rule</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span>	
+		<span class="bp">self</span><span class="o">.</span><span class="n">vt</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="c">#___________________________________________________________#</span>
+<div class="viewcode-block" id="rawMatrix.run"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.rawMatrix.run">[docs]</a>	<span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">context</span> 			<span class="o">=</span> <span class="n">loadContextFile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contextFile</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span>		 	<span class="o">=</span> <span class="n">buildLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stopList</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexiconCutoff</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconSorted</span>		<span class="o">=</span> <span class="n">getSortedLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span>	<span class="o">=</span> <span class="n">buildLexiconPositionTable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexiconSorted</span><span class="p">)</span>
+		<span class="n">writeLexicon</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lexiconFile</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexiconSorted</span><span class="p">)</span>
+		<span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span> 			<span class="o">=</span> <span class="n">computeMatrix</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">winLength</span><span class="p">)</span> <span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexicon</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lexiconPosition</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">context</span><span class="p">)</span>		
+		
+		<span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span> <span class="p">:</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">sparseMat</span>	<span class="o">=</span> <span class="n">scipy</span><span class="o">.</span><span class="n">sparse</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">)</span>
+			<span class="n">ut</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">vt</span> 	<span class="o">=</span> <span class="n">sparsesvd</span><span class="o">.</span><span class="n">sparsesvd</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sparseMat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span><span class="p">)</span>
+			<span class="n">dump2File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">VtFile</span><span class="p">)</span>
+			<span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span> <span class="o">=</span> <span class="n">computeReduction</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">denseMat</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cutOffSVD</span><span class="p">)</span>
+			<span class="n">dump2File</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reducedMatrix</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">redMatFile</span><span class="p">)</span>		
+		<span class="k">else</span> <span class="p">:</span> 
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; not enough contexts&#39;</span><span class="p">)</span>
+
+<span class="c">#___________________________________________________________#		</span></div></div>
+<div class="viewcode-block" id="loadContextFile"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.loadContextFile">[docs]</a><span class="k">def</span> <span class="nf">loadContextFile</span><span class="p">(</span><span class="n">contextFile</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; liste de tuple retrait de l&#39;entête de la ligne de contexte&#39;&#39;&#39;</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; loading context file&#39;</span><span class="p">)</span>
+	<span class="n">context</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">contextFile</span><span class="p">)):</span>	
+		<span class="n">fContext</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">contextFile</span><span class="p">,</span> <span class="s">&#39;r&#39;</span><span class="p">)</span>
+		<span class="n">contextTemp</span> <span class="o">=</span> <span class="n">fContext</span><span class="o">.</span><span class="n">readlines</span><span class="p">()</span>
+		<span class="n">fContext</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">contextTemp</span><span class="p">))</span> <span class="o">+</span> <span class="s">&#39; contexts&#39;</span><span class="p">)</span>
+	
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">contextTemp</span> <span class="p">:</span>
+		<span class="n">currentLine</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;;&#39;</span><span class="p">)</span>
+		<span class="n">context</span><span class="o">.</span><span class="n">append</span><span class="p">(</span> <span class="n">currentLine</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span> <span class="p">)</span>
+	<span class="k">return</span> <span class="n">context</span>	
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="buildLexicon"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.buildLexicon">[docs]</a><span class="k">def</span> <span class="nf">buildLexicon</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">stopList</span><span class="p">,</span> <span class="n">cutOff</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; compiling lexicon&#39;</span><span class="p">)</span>
+	<span class="n">lexiconOut</span> 		<span class="o">=</span> <span class="p">{}</span>
+	<span class="n">lexiconGlobal</span> 	<span class="o">=</span> <span class="p">{}</span>	
+	
+	<span class="c"># == threshold over the number of term appearings == #</span>
+	<span class="k">if</span> <span class="n">cutOff</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+		<span class="n">lexiconThreshold</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="k">else</span> <span class="p">:</span> 
+		<span class="n">lexiconThreshold</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">context</span><span class="p">)</span><span class="o">/</span><span class="n">cutOff</span><span class="p">)</span>
+	
+	<span class="k">for</span> <span class="n">currentLine</span> <span class="ow">in</span> <span class="n">context</span><span class="p">:</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">currentLine</span> <span class="p">:</span>
+			<span class="k">try</span> <span class="p">:</span>
+				<span class="n">currentTerm</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+				<span class="n">currentList</span> <span class="o">=</span> <span class="n">i</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+			<span class="k">except</span> <span class="p">:</span> 
+				<span class="k">print</span><span class="p">(</span> <span class="s">&#39; attention : &#39;</span><span class="p">,</span> <span class="n">currentTerm</span><span class="p">,</span> <span class="n">currentList</span><span class="p">,</span> <span class="n">currentLine</span> <span class="p">)</span>
+			
+			<span class="c"># == the central item of the context is not kept == #	</span>
+			<span class="k">if</span> <span class="s">&#39;0&#39;</span> <span class="ow">not</span>  <span class="ow">in</span> <span class="n">currentList</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">):</span>
+				<span class="c"># == a stop list is used == #</span>
+				<span class="k">if</span> <span class="n">currentTerm</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stopList</span> <span class="p">:</span>
+					<span class="k">if</span> <span class="p">(</span><span class="n">currentTerm</span> <span class="ow">in</span> <span class="n">lexiconGlobal</span><span class="p">):</span>
+						<span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">currentTerm</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">currentList</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span> <span class="c">#listLength</span>
+					<span class="k">else</span> <span class="p">:</span>
+						<span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">currentTerm</span><span class="p">]</span> <span class="o">=</span>  <span class="nb">len</span><span class="p">(</span><span class="n">currentList</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">))</span> <span class="c">#listLength</span>
+	
+	<span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">lexiconGlobal</span><span class="p">:</span>
+		<span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">w</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="n">lexiconThreshold</span><span class="p">:</span>
+			<span class="n">lexiconOut</span><span class="p">[</span><span class="n">w</span><span class="p">]</span> <span class="o">=</span> <span class="n">lexiconGlobal</span><span class="p">[</span><span class="n">w</span><span class="p">]</span>
+
+	<span class="k">return</span> 	<span class="n">lexiconOut</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="getSortedLexicon"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.getSortedLexicon">[docs]</a><span class="k">def</span> <span class="nf">getSortedLexicon</span><span class="p">(</span><span class="n">lexiconGlobal</span><span class="p">):</span>		
+	<span class="n">lexicon</span> <span class="o">=</span> <span class="p">[]</span>
+	<span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">lexiconGlobal</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">lexiconGlobal</span><span class="o">.</span><span class="n">get</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span> 
+		<span class="n">lexicon</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+		<span class="c">#print(w, lexiconGlobal[w])</span>
+	<span class="k">return</span> <span class="n">lexicon</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="buildLexiconPositionTable"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.buildLexiconPositionTable">[docs]</a><span class="k">def</span> <span class="nf">buildLexiconPositionTable</span><span class="p">(</span><span class="n">lexicon</span><span class="p">):</span>
+	<span class="n">lexiconPosition</span> <span class="o">=</span> <span class="p">{}</span>
+	<span class="k">for</span> <span class="n">position</span><span class="p">,</span> <span class="n">token</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">lexicon</span><span class="p">):</span>
+		<span class="n">lexiconPosition</span><span class="p">[</span><span class="n">token</span><span class="p">]</span> <span class="o">=</span> <span class="n">position</span>
+	<span class="k">return</span> <span class="n">lexiconPosition</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="writeLexicon"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.writeLexicon">[docs]</a><span class="k">def</span> <span class="nf">writeLexicon</span><span class="p">(</span><span class="n">lexiconFile</span><span class="p">,</span> <span class="n">lexicon</span><span class="p">,</span> <span class="n">lexiconPosition</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; writing lexicon&#39;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">lexiconFile</span><span class="p">)):</span>
+		<span class="n">fLexicon</span><span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">lexiconFile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">lexiconPosition</span><span class="p">:</span>
+			<span class="n">fLexicon</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">item</span> <span class="o">+</span> <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">lexicon</span><span class="p">[</span><span class="n">item</span><span class="p">])</span> <span class="o">+</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+		<span class="n">fLexicon</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	<span class="k">else</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;lexicon file already exists&#39;</span><span class="p">)</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="headingMatrixOutput"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.headingMatrixOutput">[docs]</a><span class="k">def</span> <span class="nf">headingMatrixOutput</span><span class="p">(</span><span class="n">outMatrixFile</span><span class="p">,</span> <span class="n">lineCnt</span><span class="p">,</span> <span class="n">rawCnt</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; writting output file&#39;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">outMatrixFile</span><span class="p">)):</span>
+		<span class="n">fMatrix</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outMatrixFile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+		<span class="n">fMatrix</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">lineCnt</span>  <span class="o">+</span> <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="n">rawCnt</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+		<span class="n">fMatrix</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+	<span class="k">else</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="n">outMatrixFile</span> <span class="o">+</span> <span class="s">&#39; already exists&#39;</span><span class="p">)</span>
+		<span class="nb">exit</span><span class="p">()</span>
+<span class="c">#___________________________________________________________#</span></div>
+<div class="viewcode-block" id="computeMatrix"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.computeMatrix">[docs]</a><span class="k">def</span> <span class="nf">computeMatrix</span><span class="p">(</span><span class="n">windowsLimit</span><span class="p">,</span> <span class="n">lexicon</span><span class="p">,</span> <span class="n">lexiconPosition</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; from lexcion and context, order depends on the lexicon	&#39;&#39;&#39;</span>
+	<span class="n">matrix</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">context</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span> <span class="p">]</span> <span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>		
+	<span class="c"># == contrainst on the windows length == #</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">windowsLimit</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+		<span class="n">windowsLimit</span> <span class="o">=</span> <span class="mi">100000</span>
+		
+	<span class="k">for</span> <span class="n">cL</span><span class="p">,</span> <span class="n">currentContext</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">context</span><span class="p">):</span>			
+		<span class="c"># == one vecteur_distance per context == #</span>
+		<span class="n">vecteur_distance</span> <span class="o">=</span> <span class="p">{}</span>
+		
+		<span class="c"># == for elements of the context : get only the nearer occurrence</span>
+		<span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">currentContext</span> <span class="p">:</span>
+			<span class="n">term</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">];</span>
+			
+			<span class="k">if</span> <span class="n">term</span> <span class="ow">in</span> <span class="n">lexicon</span> <span class="p">:</span> 
+				<span class="n">positionList</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;,&#39;</span><span class="p">)</span>
+				<span class="n">minPosition</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">positionList</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+				
+				<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">positionList</span><span class="p">:</span>
+					<span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="o">&lt;=</span> <span class="n">minPosition</span> <span class="p">:</span>
+						<span class="n">minPosition</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+						
+				<span class="c"># == test on the distance == #</span>
+				<span class="k">if</span>  <span class="nb">abs</span><span class="p">(</span><span class="n">minPosition</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">windowsLimit</span>  <span class="p">:</span>
+					<span class="c"># == center of the context is forced to 0 == #</span>
+					<span class="k">if</span> <span class="n">minPosition</span> <span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+						<span class="c"># == should not happen</span>
+						<span class="n">vecteur_distance</span><span class="p">[</span><span class="n">term</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+					<span class="k">else</span> <span class="p">:</span>
+						<span class="n">vecteur_distance</span><span class="p">[</span><span class="n">term</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(((</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span> <span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">minPosition</span><span class="p">))))</span> <span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+						
+			<span class="n">currentMatrixLine</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span> <span class="p">],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span> <span class="p">)</span>
+
+			<span class="k">for</span> <span class="n">lex</span> <span class="ow">in</span> <span class="n">vecteur_distance</span> <span class="p">:</span>
+				<span class="n">cPosition</span> <span class="o">=</span> <span class="n">lexiconPosition</span><span class="p">[</span><span class="n">lex</span><span class="p">]</span>
+				<span class="k">if</span> <span class="n">cPosition</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">:</span>
+					<span class="n">currentMatrixLine</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">cPosition</span><span class="p">]</span> <span class="o">=</span>  <span class="n">vecteur_distance</span><span class="p">[</span><span class="n">lex</span><span class="p">]</span> 		
+			<span class="n">matrix</span><span class="p">[</span><span class="n">cL</span><span class="p">]</span> <span class="o">=</span>  <span class="n">currentMatrixLine</span>
+	<span class="k">return</span> <span class="n">matrix</span>
+<span class="c">#_____________________________________________________________#</span></div>
+<div class="viewcode-block" id="write2rawMatrix"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.write2rawMatrix">[docs]</a><span class="k">def</span> <span class="nf">write2rawMatrix</span><span class="p">(</span><span class="n">matriceSortie</span><span class="p">,</span><span class="n">outMatrixFile</span><span class="p">):</span>
+	<span class="n">fout</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">outMatrixFile</span> <span class="p">,</span> <span class="s">&#39;a&#39;</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">matriceSortie</span> <span class="p">:</span>
+		<span class="n">fout</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+	<span class="n">fout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+<span class="c">#_____________________________________________________________#</span></div>
+<div class="viewcode-block" id="dump2File"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.dump2File">[docs]</a><span class="k">def</span> <span class="nf">dump2File</span><span class="p">(</span><span class="n">mat2Dump</span><span class="p">,</span> <span class="n">DestFile</span><span class="p">):</span>
+	<span class="n">fDest</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">DestFile</span><span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+	<span class="n">fDest</span><span class="o">.</span><span class="n">write</span><span class="p">(</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">mat2Dump</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span> <span class="o">+</span>  <span class="s">&#39; &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">mat2Dump</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+	<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mat2Dump</span> <span class="p">:</span>
+		<span class="n">line</span> <span class="o">=</span> <span class="p">[]</span>
+		<span class="k">for</span> <span class="n">number</span> <span class="ow">in</span> <span class="n">p</span> <span class="p">:</span>
+			<span class="n">line</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="s">&quot;</span><span class="si">%.4e</span><span class="s">&quot;</span> <span class="o">%</span> <span class="n">number</span><span class="p">))</span> 
+		<span class="n">fDest</span><span class="o">.</span><span class="n">write</span><span class="p">(</span> <span class="s">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+	<span class="n">fDest</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>	
+<span class="c">#_____________________________________________________________#</span></div>
+<div class="viewcode-block" id="computeReduction"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.computeReduction">[docs]</a><span class="k">def</span> <span class="nf">computeReduction</span><span class="p">(</span><span class="n">vt</span><span class="p">,</span> <span class="n">mat2Project</span><span class="p">,</span> <span class="n">cutOffSVD</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; computing reduction&#39;</span><span class="p">)</span>
+	<span class="n">tsvdMatrix</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">vt</span><span class="p">)</span>		
+	<span class="n">reducedMatrix</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span> <span class="nb">len</span><span class="p">(</span><span class="n">mat2Project</span><span class="p">),</span> <span class="n">cutOffSVD</span> <span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+	<span class="n">cmpt_Line</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">currentLine</span> <span class="ow">in</span> <span class="n">mat2Project</span><span class="p">:</span>
+		<span class="n">result</span> <span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">currentLine</span><span class="p">,</span><span class="n">tsvdMatrix</span><span class="p">)</span>
+		<span class="n">reducedMatrix</span><span class="p">[</span><span class="n">cmpt_Line</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+		<span class="n">cmpt_Line</span> <span class="o">+=</span> <span class="mi">1</span>
+	<span class="k">return</span> <span class="n">reducedMatrix</span>
+<span class="c">#_____________________________________________________________#</span></div>
+<div class="viewcode-block" id="loadMatFile"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.loadMatFile">[docs]</a><span class="k">def</span> <span class="nf">loadMatFile</span><span class="p">(</span><span class="n">fName</span><span class="p">):</span>
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;--&gt; loading &#39;</span> <span class="o">+</span> <span class="n">fName</span><span class="p">)</span>
+	<span class="sd">&#39;&#39;&#39; loading file with header on one line &#39;&#39;&#39;</span>
+	<span class="n">matContent</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">loadFile</span><span class="p">(</span><span class="n">fName</span><span class="p">)</span>
+	<span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">matContent</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">())</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;check first line format in &#39;</span> <span class="o">+</span> <span class="n">fName</span><span class="p">)</span>
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="n">matrix</span><span class="o">=</span><span class="n">numpy</span><span class="o">.</span><span class="n">empty</span><span class="p">([</span><span class="nb">int</span><span class="p">((</span><span class="n">matContent</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">((</span><span class="n">matContent</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">())[</span><span class="mi">1</span><span class="p">])],</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">matContent</span><span class="p">))</span> <span class="p">:</span>
+			<span class="n">j</span><span class="o">=</span> <span class="mi">0</span>
+			<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">matContent</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()</span> <span class="p">:</span>
+				<span class="n">matrix</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+				<span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+	<span class="k">return</span> <span class="n">matrix</span>
+<span class="c">#_____________________________________________________________#	</span>
+</div>
+<div class="viewcode-block" id="buildCollocMatrix"><a class="viewcode-back" href="../buildMatrixCCM.html#buildMatrixCCM.buildCollocMatrix">[docs]</a><span class="k">def</span> <span class="nf">buildCollocMatrix</span><span class="p">(</span><span class="n">lexicon</span><span class="p">,</span> <span class="n">contextVect</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">	lexicon = dict() word =&gt; nb of occurrences</span>
+<span class="sd">	contextVect = dict()-&gt;dict() pattern =&gt; distance_mini</span>
+<span class="sd">	&#39;&#39;&#39;</span>
+	<span class="n">sortedLexicon</span> <span class="o">=</span> <span class="n">getSortedLexicon</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span>
+	<span class="n">outputMatrix</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+	<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">contextVect</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+		<span class="n">currentLine</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+		<span class="n">currentContext</span> <span class="o">=</span> <span class="n">contextVect</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+		<span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">sortedLexicon</span> <span class="p">:</span>
+			<span class="k">if</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">currentContext</span> <span class="p">:</span>
+				<span class="n">currentLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">currentContext</span><span class="p">[</span><span class="n">item</span><span class="p">])</span>
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="n">currentLine</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+	
+	
+</pre></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

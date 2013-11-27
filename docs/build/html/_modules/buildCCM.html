@@ -1,0 +1,433 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>buildCCM &mdash; CCM 0.0 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="CCM 0.0 documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for buildCCM</h1><div class="highlight"><pre>
+<span class="c">#!/usr/bin/python</span>
+<span class="c"># -*- coding: utf-8 -*-</span>
+<span class="c"># python 2.6 sur le cluster</span>
+
+<span class="c">#import argparse</span>
+<span class="c">#import extractContext</span>
+<span class="c">#import computeSVD</span>
+<span class="c">#import threadPool</span>
+<span class="c">#import computeRejection</span>
+
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">threading</span><span class="o">,</span> <span class="nn">time</span><span class="o">,</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">optparse</span> <span class="kn">import</span> <span class="n">OptionParser</span>
+<span class="kn">import</span> <span class="nn">configServerCCM</span>
+<span class="kn">import</span> <span class="nn">extractContextCCM</span>
+<span class="kn">import</span> <span class="nn">utilsCCM</span>
+<span class="kn">import</span> <span class="nn">buildMatrixCCM</span>
+<span class="kn">import</span> <span class="nn">processSvdCCM</span>
+<span class="kn">import</span> <span class="nn">processRejectionEntitySpaceCCM</span><span class="o">,</span> <span class="nn">processRejectionCommonSpaceCCM</span>
+<span class="kn">import</span> <span class="nn">learnSVMmodelCCM</span>
+<span class="kn">import</span> <span class="nn">processGmmCCM</span>
+
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">Program&#39;s main script : buildCCM</span>
+<span class="sd">--- building Continuous Context Models is made in several steps --- </span>
+<span class="sd">usage : buildCCM.py -c configFile -s subTask (optional) -l listeSpeaker (optional)</span>
+<span class="sd">The subtasks are </span>
+<span class="sd">C : context extraction</span>
+<span class="sd">M : matrix building</span>
+<span class="sd">S : SVD realization</span>
+<span class="sd">R : dimension reduction</span>
+<span class="sd">J : rejection matrix construction</span>
+<span class="sd">L : learning SVM models</span>
+
+<span class="sd">the listeSpeaker is composed of a label and a research pattern:</span>
+<span class="sd">LABEL:pattern pattern_subpattern -pattern_removed</span>
+<span class="sd">&#39;&#39;&#39;</span>
+
+
+<span class="c"># ==================== Launching Zone ==================== #</span>
+<div class="viewcode-block" id="extractContext"><a class="viewcode-back" href="../buildCCM.html#buildCCM.extractContext">[docs]</a><span class="k">def</span> <span class="nf">extractContext</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="c"># corpusList			: list of directories paths</span>
+	<span class="c"># corpusDirContent		: list tuples of words, one line is one document</span>
+	<span class="c"># corpusDirContentPOS 	: corpusDirContent woth POS filtering</span>
+	<span class="c"># subcorpus 			: one tuple is one document words</span>
+	<span class="c"># doneFile 				: contains the list of already processed corpus dir of corpusList</span>
+	
+	
+	<span class="c"># == extracting contexts == #</span>
+	<span class="k">for</span> <span class="n">corpus</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">corpusList</span><span class="p">:</span>
+		<span class="c"># == prepare documents content == #</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;=== processing &#39;</span> <span class="o">+</span> <span class="n">corpus</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span> <span class="o">+</span> <span class="s">&#39; ====&#39;</span><span class="p">)</span>
+		<span class="n">corpusDirContent</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">getCorpusDirContent</span><span class="p">(</span><span class="n">corpus</span><span class="p">)</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; processing POS tagging&#39;</span><span class="p">)</span>
+		<span class="n">corpusDirContentPOS</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">processCorpusDirContentPOS</span><span class="p">(</span><span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">expe</span><span class="p">)</span>
+		
+		<span class="c"># == running multi threads context extraction == #</span>
+		<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+			<span class="n">doneFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;.subcorpusDone&#39;</span>
+
+			<span class="k">if</span> <span class="p">(</span><span class="n">utilsCCM</span><span class="o">.</span><span class="n">isAlreadyDone</span><span class="p">(</span><span class="n">doneFile</span><span class="p">,</span> <span class="n">corpus</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;Active Threads : &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; - processing &#39;</span> <span class="o">+</span> <span class="n">rule</span><span class="p">)</span>
+
+				<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">):</span>
+					<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+			
+				<span class="c"># == declare an threading entity class == #</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">extractContextCCM</span><span class="o">.</span><span class="n">extractContext</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">corpusDirContent</span><span class="p">,</span> <span class="n">corpusDirContentPOS</span><span class="p">,</span>  <span class="n">corpus</span> <span class="p">,</span> <span class="n">expe</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+			<span class="k">else</span> <span class="p">:</span> 
+				<span class="k">print</span><span class="p">(</span><span class="n">rule</span>  <span class="o">+</span> <span class="s">&#39; already done&#39;</span><span class="p">)</span>
+				
+				
+		<span class="c"># == waiting loop == #</span>
+		<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+
+	<span class="c"># == removing redundant contexts == #</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">print</span> <span class="p">(</span><span class="s">&#39;--&gt; &#39;</span><span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;: removing redundancy in context files&#39;</span><span class="p">)</span>
+		<span class="n">contextFile</span> <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span>
+		<span class="n">tempFile</span>    <span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="o">+</span><span class="s">&#39;.temp&#39;</span>
+		<span class="n">utilsCCM</span><span class="o">.</span><span class="n">removeRedundancy</span><span class="p">(</span> <span class="n">contextFile</span><span class="p">,</span> <span class="n">tempFile</span><span class="p">)</span>
+<span class="c">#_____________________________________________________________________#</span></div>
+<div class="viewcode-block" id="buildRawMatrix"><a class="viewcode-back" href="../buildCCM.html#buildCCM.buildRawMatrix">[docs]</a><span class="k">def</span> <span class="nf">buildRawMatrix</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; compute raw matrix building with threads &#39;&#39;&#39;</span>
+	<span class="n">ruleCounter</span> <span class="o">=</span> <span class="mi">0</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">if</span>  <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span><span class="p">)</span>    <span class="p">:</span>
+			<span class="c"># == rule is a name id == #</span>
+			<span class="c">#ruleCounter+=1</span>
+			
+			<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+			
+			<span class="k">if</span> <span class="p">((</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span><span class="p">))</span> <span class="ow">or</span> <span class="p">(</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">lexiconDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">lexiconExt</span><span class="p">)</span> <span class="p">))</span> <span class="p">:</span>
+				<span class="c"># == declare a threading entity class == #</span>
+				<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; building matrix for &#39;</span> <span class="o">+</span> <span class="n">rule</span><span class="p">)</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">rawMatrix</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">expe</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+	
+	<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="c">#_____________________________________________________________________#	</span></div>
+<div class="viewcode-block" id="prepareGlobalRejectionFile"><a class="viewcode-back" href="../buildCCM.html#buildCCM.prepareGlobalRejectionFile">[docs]</a><span class="k">def</span> <span class="nf">prepareGlobalRejectionFile</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	
+	<span class="c"># == first step : building rejection context file == #</span>
+	<span class="c"># a fastest way is to build only one rejection file with an index file </span>
+	<span class="c"># boucle d&#39;attente de durée aléatoire :</span>
+	<span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">()</span>
+	<span class="n">n</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+	<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+	<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.running&#39;</span><span class="p">)</span> <span class="p">:</span> 
+		<span class="n">fout</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.running&#39;</span> <span class="p">,</span> <span class="s">&#39;w&#39;</span><span class="p">)</span>
+		<span class="n">fout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+		<span class="c"># ======================================================================= #	</span>
+		<span class="c"># == creation d&#39;un fichier contenant les contextes tirés aléatoirement == #</span>
+		<span class="c"># ======================================================================= #					</span>
+		<span class="k">if</span> <span class="p">(</span> <span class="ow">not</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.context&#39;</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.list&#39;</span><span class="p">))):</span>
+			<span class="n">fRejContext</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.context&#39;</span><span class="p">,</span><span class="s">&#39;w&#39;</span><span class="p">)</span>
+			<span class="n">fRejList</span>    <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.list&#39;</span><span class="p">,</span><span class="s">&#39;w&#39;</span><span class="p">)</span>
+			
+			<span class="n">listFile</span> <span class="o">=</span> <span class="p">[]</span> 
+			<span class="k">for</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">files</span><span class="p">)</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span><span class="p">)</span> <span class="p">:</span>
+				<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">files</span> <span class="p">:</span>
+					<span class="k">if</span> <span class="s">&#39;.context&#39;</span> <span class="ow">in</span> <span class="n">i</span> <span class="p">:</span>
+						<span class="n">listFile</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+			<span class="k">for</span> <span class="n">rules</span> <span class="ow">in</span> <span class="n">listFile</span> <span class="p">:</span>
+				<span class="n">rule</span> <span class="o">=</span> <span class="n">rules</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s">&#39;.context&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+				<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span>  <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="p">)</span> <span class="p">:</span>
+					<span class="k">print</span><span class="p">(</span><span class="s">&#39;---&gt; extracting rejection examples from &#39;</span><span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span> <span class="p">)</span>
+					<span class="n">randomLines</span> <span class="o">=</span> <span class="n">utilsCCM</span><span class="o">.</span><span class="n">takeRandomContext</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span> <span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejectionNumber</span><span class="p">)</span>
+					<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">randomLines</span> <span class="p">:</span>
+						<span class="n">fRejContext</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+						<span class="n">fRejList</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rule</span><span class="o">+</span><span class="s">&#39;</span><span class="se">\n</span><span class="s">&#39;</span><span class="p">)</span>
+			<span class="n">fRejContext</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+			<span class="n">fRejList</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+		<span class="c"># ================================================================================= #</span>
+		<span class="c"># ==  creation d&#39;un fichier de lexique pour l&#39;ensemble de contextes de rejection == #</span>
+		<span class="c"># ================================================================================= #</span>
+		<span class="n">contextInit</span>	<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">loadContextFile</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.context&#39;</span><span class="p">)</span>
+		<span class="n">lexicon</span> <span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexicon</span><span class="p">(</span><span class="n">contextInit</span><span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">stopList</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">lexiconSorted</span>	<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">getSortedLexicon</span><span class="p">(</span><span class="n">lexicon</span><span class="p">)</span>
+		<span class="n">lexiconPosition</span>	<span class="o">=</span> <span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">buildLexiconPositionTable</span><span class="p">(</span><span class="n">lexiconSorted</span><span class="p">)</span>
+		<span class="c"># =============================================================== #</span>
+		<span class="c"># == ecriture du fichier de lexique de l&#39;ensemble de rejection == #</span>
+		<span class="c"># =============================================================== #</span>
+		<span class="n">buildMatrixCCM</span><span class="o">.</span><span class="n">writeLexicon</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.lexicon&#39;</span><span class="p">,</span> <span class="n">lexicon</span><span class="p">,</span> <span class="n">lexiconSorted</span><span class="p">)</span>
+		
+		<span class="c"># == suppression du fichier d&#39;attente == #</span>
+		<span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.running&#39;</span><span class="p">)</span>
+
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span><span class="s">&#39;/Rejection.running&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="bp">True</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waiting...&#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+	
+	<span class="k">print</span><span class="p">(</span><span class="s">&#39;==== fin rejection files prepratation ====&#39;</span><span class="p">)</span>
+<span class="c">#_____________________________________________________________________#	</span></div>
+<div class="viewcode-block" id="buildRejectionEntitySpace"><a class="viewcode-back" href="../buildCCM.html#buildCCM.buildRejectionEntitySpace">[docs]</a><span class="k">def</span> <span class="nf">buildRejectionEntitySpace</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; first rejection model using the rule lexicon &#39;&#39;&#39;</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span><span class="p">)</span> <span class="p">:</span>	
+			<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">8</span><span class="p">):</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+			
+			<span class="c"># == declare a threading entity class == #</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span><span class="p">)</span> <span class="p">:</span>			
+				<span class="n">t</span> <span class="o">=</span> <span class="n">processRejectionEntitySpaceCCM</span><span class="o">.</span><span class="n">writeReject</span><span class="p">(</span><span class="n">rule</span><span class="p">,</span> <span class="n">expe</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+	<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>	
+<span class="c">#_______________________________________________________________#</span></div>
+<div class="viewcode-block" id="learnSvmModel2class"><a class="viewcode-back" href="../buildCCM.html#buildCCM.learnSvmModel2class">[docs]</a><span class="k">def</span> <span class="nf">learnSvmModel2class</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>	
+		<span class="k">if</span> <span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span><span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span><span class="n">rule</span><span class="o">+</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span><span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span><span class="n">rule</span><span class="o">+</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span><span class="p">)):</span>
+			<span class="n">rejMatFile</span> 		<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span>
+			<span class="n">accpetMatFile</span> 	<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span>
+			<span class="n">svmOutFile</span>		<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">svmMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">svmMatExt</span>
+			<span class="k">print</span><span class="p">(</span><span class="n">rejMatFile</span><span class="p">,</span><span class="n">accpetMatFile</span><span class="p">,</span><span class="n">svmOutFile</span><span class="p">)</span>
+			<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">):</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+			
+			<span class="c"># == declare a threading entity class == #	</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">svmOutFile</span><span class="p">)</span> <span class="p">:</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">learnSVMmodelCCM</span><span class="o">.</span><span class="n">computeSVMmodel</span><span class="p">(</span><span class="n">expe</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">accpetMatFile</span><span class="p">,</span> <span class="n">rejMatFile</span><span class="p">,</span> <span class="n">svmOutFile</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+			<span class="k">else</span><span class="p">:</span> 
+				<span class="k">print</span><span class="p">(</span><span class="n">rule</span>  <span class="o">+</span> <span class="s">&#39; 2-class svm model already learnt&#39;</span><span class="p">)</span>
+					
+	<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>			
+<span class="c">#________________________________________________________________#	</span></div>
+<div class="viewcode-block" id="learn2classGMM"><a class="viewcode-back" href="../buildCCM.html#buildCCM.learn2classGMM">[docs]</a><span class="k">def</span>  <span class="nf">learn2classGMM</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">if</span><span class="p">(</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span><span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span><span class="n">rule</span><span class="o">+</span><span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span><span class="o">+</span><span class="s">&#39;/&#39;</span><span class="o">+</span><span class="n">rule</span><span class="o">+</span><span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span><span class="p">)):</span>
+			<span class="n">rejMatFile</span> 		<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejMatExt</span>
+			<span class="n">accpetMatFile</span> 	<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">redMatExt</span>
+			<span class="n">gmmOutFile</span>		<span class="o">=</span> <span class="n">expe</span><span class="o">.</span><span class="n">gmmDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">gmmExt</span>
+
+			<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">):</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+				
+			<span class="c"># == declare a threading entity class == #      </span>
+			<span class="k">if</span> <span class="p">(</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gmmOutFile</span><span class="o">+</span><span class="s">&#39;.accept&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gmmOutFile</span><span class="o">+</span><span class="s">&#39;.reject&#39;</span><span class="p">)</span> <span class="p">):</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">processGmmCCM</span><span class="o">.</span><span class="n">processGMM</span><span class="p">(</span><span class="n">expe</span><span class="p">,</span> <span class="n">rule</span><span class="p">,</span> <span class="n">accpetMatFile</span><span class="p">,</span> <span class="n">rejMatFile</span><span class="p">,</span><span class="n">gmmOutFile</span><span class="p">)</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> 
+			<span class="k">else</span> <span class="p">:</span>
+				<span class="k">print</span><span class="p">(</span><span class="n">rule</span>  <span class="o">+</span> <span class="s">&#39; 2-class gmm model already learnt&#39;</span><span class="p">)</span>
+
+	<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+		<span class="k">else</span> <span class="p">:</span>   
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="c">#________________________________________________________________#</span></div>
+<div class="viewcode-block" id="buildRejectionCommonLexicalSpace"><a class="viewcode-back" href="../buildCCM.html#buildCCM.buildRejectionCommonLexicalSpace">[docs]</a><span class="k">def</span> <span class="nf">buildRejectionCommonLexicalSpace</span><span class="p">(</span><span class="n">expe</span><span class="p">):</span>
+	<span class="sd">&#39;&#39;&#39; in this process, acceptation and rejection are projected in the same lexical space</span>
+<span class="sd">	    argument is a list of id, since this function will be used for multi-class processing  &#39;&#39;&#39;</span>
+	<span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">expe</span><span class="o">.</span><span class="n">itemList</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">contextExt</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">expeMatExt</span><span class="p">)</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span>
+			<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+				<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.0001</span><span class="p">)</span>
+                <span class="c"># == declare a threading entity class == #</span>
+			<span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">expeMatDir</span> <span class="o">+</span> <span class="s">&#39;/&#39;</span> <span class="o">+</span> <span class="n">rule</span> <span class="o">+</span> <span class="n">expe</span><span class="o">.</span><span class="n">expeMatExt</span><span class="p">)</span> <span class="p">:</span>
+				<span class="n">t</span> <span class="o">=</span> <span class="n">processRejectionCommonSpaceCCM</span><span class="o">.</span><span class="n">writeReject</span><span class="p">(</span><span class="n">expe</span><span class="p">,</span> <span class="p">[</span><span class="n">rule</span><span class="p">])</span>
+				<span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> 
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="n">rule</span> <span class="p">,</span> <span class="s">&#39;pas de matrice de rejection&#39;</span><span class="p">)</span>
+	<span class="k">while</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">):</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="mi">10</span> <span class="p">):</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span><span class="p">(</span><span class="s">&#39;waitng for &#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">activeCount</span><span class="p">())</span> <span class="o">+</span> <span class="s">&#39; active process &#39;</span><span class="p">)</span>
+			<span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="c">#_______________________________________________________________#</span>
+
+<span class="c">#========================== Main Routine ========================#</span></div>
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+	<span class="n">usage</span> <span class="o">=</span> <span class="s">&quot;usage: %prog -c config_file -l speaker_rule&quot;</span>
+	<span class="n">parser</span> <span class="o">=</span> <span class="n">OptionParser</span><span class="p">(</span><span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-c&quot;</span><span class="p">,</span> <span class="s">&quot;--config&quot;</span><span class="p">,</span>  <span class="n">dest</span><span class="o">=</span><span class="s">&quot;config&quot;</span><span class="p">,</span>  <span class="n">help</span> <span class="o">=</span><span class="s">&quot;configuration file&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-s&quot;</span><span class="p">,</span> <span class="s">&quot;--subTask&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;subTask&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;optional CMJLGS Context Matrix reJection svmmodeL Gmmmodel SameSpace&quot;</span><span class="p">)</span>
+	<span class="n">parser</span><span class="o">.</span><span class="n">add_option</span><span class="p">(</span><span class="s">&quot;-l&quot;</span><span class="p">,</span> <span class="s">&quot;--listSpeaker&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s">&quot;spkList&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s">&quot;if defined, speaker list is used instead&quot;</span><span class="p">)</span>
+	
+	<span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+	
+	
+	
+	
+	<span class="c"># == loading configuration parameters (-s arguments)  == #	</span>
+	<span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">config</span> <span class="o">==</span> <span class="bp">None</span> <span class="p">:</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&quot;configuraton file is not optionnal &quot;</span><span class="p">)</span>
+		<span class="nb">exit</span><span class="p">()</span>
+	<span class="k">else</span> <span class="p">:</span>
+		<span class="n">expe</span> <span class="o">=</span> <span class="n">configServerCCM</span><span class="o">.</span><span class="n">Configuration</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+	
+	<span class="c"># == overwrite spkList (-l option) == #</span>
+	<span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">spkList</span> <span class="o">!=</span> <span class="bp">None</span> <span class="p">:</span>
+		<span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span> <span class="p">:</span> 
+			<span class="k">print</span><span class="p">(</span><span class="s">&quot;rule list passed as an option &quot;</span><span class="o">+</span>  <span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span>
+			<span class="p">(</span><span class="n">expe</span><span class="o">.</span><span class="n">itemList</span><span class="p">,</span>  <span class="n">expe</span><span class="o">.</span><span class="n">acceptation</span><span class="p">,</span> <span class="n">expe</span><span class="o">.</span><span class="n">rejection</span><span class="p">)</span> <span class="o">=</span> <span class="n">configServerCCM</span><span class="o">.</span><span class="n">loadRules</span><span class="p">(</span><span class="n">options</span><span class="o">.</span><span class="n">spkList</span><span class="p">)</span>
+			
+		<span class="k">else</span> <span class="p">:</span>
+			<span class="k">print</span> <span class="p">(</span><span class="s">&quot;speaker list file  &quot;</span>  <span class="o">+</span> <span class="n">options</span><span class="o">.</span><span class="n">spkList</span> <span class="o">+</span> <span class="s">&quot; does not exists. exiting&quot;</span><span class="p">)</span>
+			<span class="nb">exit</span><span class="p">()</span>
+
+
+	<span class="c"># == Full processing == #</span>
+	<span class="k">if</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="o">==</span> <span class="bp">None</span> <span class="p">:</span>
+		<span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="o">=</span> <span class="s">&#39;CMJLGS&#39;</span>
+	
+	
+	<span class="c"># -- extract lexicon &amp; context -- #</span>
+	<span class="k">if</span> <span class="s">&#39;C&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__running context extraction__&#39;</span><span class="p">)</span>
+		<span class="n">extractContext</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+	
+	<span class="c"># -- build dense matrix -- #</span>
+	<span class="k">if</span> <span class="s">&#39;M&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span>
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__running matrix processing__&#39;</span><span class="p">)</span>
+		<span class="n">buildRawMatrix</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+	
+	<span class="c"># -- build rejection matrix -- #</span>
+	<span class="k">if</span> <span class="s">&#39;J&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__running rejection in entity space__&#39;</span><span class="p">)</span>
+		<span class="n">prepareGlobalRejectionFile</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+		<span class="n">buildRejectionEntitySpace</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+
+	<span class="c"># -- learn svm linear models -- #</span>
+	<span class="k">if</span> <span class="s">&#39;L&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__learning 2 class linear svm models__&#39;</span><span class="p">)</span>
+		<span class="n">learnSvmModel2class</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+
+	<span class="c"># -- learn gmm models -- #</span>
+	<span class="k">if</span> <span class="s">&#39;G&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__learning 2 class gmm models__&#39;</span><span class="p">)</span>
+		<span class="n">learn2classGMM</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+
+
+	<span class="c"># -- buils rejection same space -- #</span>
+	<span class="k">if</span> <span class="s">&#39;S&#39;</span> <span class="ow">in</span> <span class="n">options</span><span class="o">.</span><span class="n">subTask</span> <span class="p">:</span> 
+		<span class="k">print</span><span class="p">(</span><span class="s">&#39;__running rejection in common space__&#39;</span><span class="p">)</span>
+		<span class="n">buildRejectionCommonLexicalSpace</span><span class="p">(</span><span class="n">expe</span><span class="p">)</span>
+
+	<span class="c"># =============================== #</span>
+	<span class="c"># -- project accept and reject context in one lexical space -- #</span>
+	<span class="c">#if &#39;T&#39; in options.subTask : </span>
+	<span class="c">#	experimentalCommonLexicalSpace(expe)</span>
+	<span class="c"># =============================== #</span>
+	<span class="c"># -- learn svm model for bi class test in progress -- #</span>
+	<span class="c">#if &#39;N&#39; in options.subTask:</span>
+	<span class="c">#	experimentalLearnSvmModels(expe)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">CCM 0.0 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, B. Bigot.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b3.
+    </div>
+  </body>
+</html>

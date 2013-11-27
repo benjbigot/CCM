@@ -228,7 +228,7 @@ def  learn2classGMM(expe):
 			if ( not os.path.exists(gmmOutFile+'.accept') or not os.path.exists(gmmOutFile+'.reject') ):
 				t = processGmmCCM.processGMM(expe, rule, accpetMatFile, rejMatFile,gmmOutFile)
 				t.start() 
-			else : 
+			else :
 				print(rule  + ' 2-class gmm model already learnt')
 
 	while (threading.activeCount() >= 2):

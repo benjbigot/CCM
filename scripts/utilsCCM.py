@@ -8,15 +8,27 @@ from random import choice
 
 
 #=========================================#
-def loadContentAndTags(fileList):
+def loadContentAndTags(fileDir):
 	'''
-	fileList is a file with 2 cols separated by a tabulation
-	first col is a tweet id 
-	second col is the content of the tweet
+	just have the directory
+	should find three files
+	POSITIVE.phr
+	NEGATIVE.phr
+	NEUTRAL.phr
 	'''
-
+	fileList = ['POSITIVE.phr', 'NEGATIVE.phr', 'NEUTRAL.phr']
+	for file in fileList :
+		if not os.exists(fileDir + '/' + file) :
+				print("file " + file + " does not exists")
+				exit()
+	
+	# == on charge les fichiers == #
 	corpusContent = []
 	labelList     = []
+	for file in fileList: 
+		fIn = open(fileDir + '/' + file , 'r')
+		
+	
 
 	Flist = open(fileList , 'r')
 	Flist_content = Flist.readlines()

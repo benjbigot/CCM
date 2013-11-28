@@ -8,6 +8,15 @@ from random import choice
 
 
 #=========================================#
+def writeList2File(destFile, list2write, overwrite):
+	if (not (os.path.exists(destFile))) or overwrite:
+		fDest = open(destFile, 'w')
+		for line in list2write:
+			fDest.write(line + '\n')
+		fDest.close()
+	else : 
+		print('file already exists')
+#=========================================#
 def loadContentAndTags(fileDir):
 	'''
 	just have the directory
@@ -17,27 +26,32 @@ def loadContentAndTags(fileDir):
 	NEUTRAL.phr
 	'''
 	fileList = ['POSITIVE.phr', 'NEGATIVE.phr', 'NEUTRAL.phr']
+	#__ checking files existence __#
 	for file in fileList :
-		if not os.exists(fileDir + '/' + file) :
+		if not os.path.exists(fileDir + '/' + file) :
 				print("file " + file + " does not exists")
 				exit()
 	
-	# == on charge les fichiers == #
+	# __ files loading __ #
 	corpusContent = []
 	labelList     = []
-	for file in fileList: 
-		fIn = open(fileDir + '/' + file , 'r')
-		
 	
+	for file in fileList: 
+		print(fileDir + '/' + file)
+		
+		fIn = open(fileDir + '/' + file , 'r')
+		Flist_content = fIn.readlines()
+		fIn.close()	
 
-	Flist = open(fileList , 'r')
-	Flist_content = Flist.readlines()
-
-	for line in Flist_content:
-		labelList.append(line.rstrip().split('\t')[0])
-		content = line.rstrip().split('\t')[1]
-		# suppose to contain only one line
-		corpusContent.append(re.sub(r' \+', ' ', content).split())
+		for line in Flist_content:
+			# remove empty lines #
+			if line.rstrip() != '':
+				# __ add tag POSITIVE, NEGATIVE or NEUTRAL to labelList
+				labelList.append(file.rstrip().split('.')[0])
+				content = line.rstrip()
+				# suppose to contain only one line
+				corpusContent.append(re.sub(r' \+', ' ', content).split(' '))
+		
 	return corpusContent, labelList
 
 #=========================================#

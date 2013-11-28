@@ -59,14 +59,20 @@ def loadContextFile(contextFile):
 	print('--> ' + str(len(contextTemp)) + ' contexts')
 	
 	for line in contextTemp :
-		currentLine = line.rstrip().split(';')
+		print "caution separator changed"
+		currentLine = line.rstrip().split('<SEP>')
 		context.append( currentLine[2:] )
 	return context	
 #___________________________________________________________#
-def buildLexicon(context, stopList, cutOff):
+def buildLexicon(context, stopList, cutOff, nbOver):
+	'''
+	input : Context, stopList, cutOff, nbOver
+	context = [['w1 w2<COUNT>dist1,dist2', 'w1 w3<COUNT>dist1,dist2',]...
+	['w1 w2<COUNT>dist1,dist2', 'w1 w3<COUNT>dist1,dist2',]]
+	'''
 	print('--> compiling lexicon')
 	lexiconOut 		= {}
-	lexiconGlobal 	= {}	
+	lexiconGlobal 	= {}		
 	
 	# == threshold over the number of term appearings == #
 	if cutOff == 0 :
@@ -74,28 +80,35 @@ def buildLexicon(context, stopList, cutOff):
 	else : 
 		lexiconThreshold = int(len(context)/cutOff)
 	
-	for currentLine in context:
-		for i in currentLine :
+	for p , currentLine in enumerate(context):
+		for i in currentLine:
 			try :
-				currentTerm = i.split(':')[0]
-				currentList = i.split(':')[1]
+				currentTerm = i.split('<COUNT>')[0]
+				currentList = i.split('<COUNT>')[1]				
 			except : 
-				print( ' attention : ', currentTerm, currentList, currentLine )
+				print('caution: ', p,  currentTerm, currentList, currentLine )
+				print('line with a problem ' ,  currentLine)
 			
-			# == the central item of the context is not kept == #	
-			if '0' not  in currentList.split(','):
+			# == the central item of the context is not kept == #				
+			if '0' not  in currentList.split(','):				
 				# == a stop list is used == #
 				if currentTerm not in stopList :
+					# adding the number of appearance of the pattern to lexicon counter
 					if (currentTerm in lexiconGlobal):
 						lexiconGlobal[currentTerm] += len(currentList.split(',')) #listLength
 					else :
 						lexiconGlobal[currentTerm] =  len(currentList.split(',')) #listLength
+			else :
+				print currentList.split(',')
 	
 	for w in lexiconGlobal:
-		if int(lexiconGlobal[w]) >= lexiconThreshold:
+		## priority to nbOver => if nbOver == 0 => use lexiconThreshold
+		## else use nbOver as a threshold
+		if (nbOver == 0) and (int(lexiconGlobal[w]) >= lexiconThreshold):
 			lexiconOut[w] = lexiconGlobal[w]
-
-	return 	lexiconOut
+		elif (nbOver != 0) and (	int(lexiconGlobal[w]) > nbOver):
+			lexiconOut[w] = lexiconGlobal[w]
+	return lexiconOut
 #___________________________________________________________#
 def getSortedLexicon(lexiconGlobal):		
 	lexicon = []
@@ -110,12 +123,12 @@ def buildLexiconPositionTable(lexicon):
 		lexiconPosition[token] = position
 	return lexiconPosition
 #___________________________________________________________#
-def writeLexicon(lexiconFile, lexicon, lexiconPosition):
+def writeLexicon(lexiconFile, lexicon, lexiconPosition, overwrite):
 	print('--> writing lexicon')
-	if not (os.path.exists(lexiconFile)):
+	if (not (os.path.exists(lexiconFile))) or overwrite:
 		fLexicon= open(lexiconFile, 'w')
 		for item in lexiconPosition:
-			fLexicon.write(item + ' ' + str(lexicon[item]) +'\n')
+			fLexicon.write(item + '\t' + str(lexicon[item]) +'\n')
 		fLexicon.close()
 	else : 
 		print('lexicon file already exists')
@@ -130,29 +143,29 @@ def headingMatrixOutput(outMatrixFile, lineCnt, rawCnt):
 		print(outMatrixFile + ' already exists')
 		exit()
 #___________________________________________________________#
-def computeMatrix(windowsLimit, lexicon, lexiconPosition, context):
+def computeMatrix(windowsLimit, lexicon, lexiconPosition, context, weighting):
 	''' from lexcion and context, order depends on the lexicon	'''
-	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=float)		
+	
+	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=float)	
 	# == contrainst on the windows length == #
 	if (windowsLimit == -1):
 		windowsLimit = 100000
 		
-	for cL, currentContext in enumerate(context):			
+	for cL, currentContext in enumerate(context):	
 		# == one vecteur_distance per context == #
 		vecteur_distance = {}
 		
 		# == for elements of the context : get only the nearer occurrence
 		for element in currentContext :
-			term = element.split(':')[0];
-			
-			if term in lexicon : 
-				positionList = element.split(':')[1].split(',')
+			term = element.split('<COUNT>')[0];
+			if term in lexicon :
+				positionList = element.split('<COUNT>')[1].split(',')
 				minPosition = int(positionList[0])
-				
+
 				for i in positionList:
 					if abs(int(i)) <= minPosition :
 						minPosition = int(i)
-						
+
 				# == test on the distance == #
 				if  abs(minPosition) <= windowsLimit  :
 					# == center of the context is forced to 0 == #
@@ -160,32 +173,68 @@ def computeMatrix(windowsLimit, lexicon, lexiconPosition, context):
 						# == should not happen
 						vecteur_distance[term] = 0
 					else :
-						vecteur_distance[term] = round(((1.0 + math.log10(10) ) / (1.0 + math.log10(10 * abs(minPosition)))) , 4)
-						
+						if weighting :
+							vecteur_distance[term] = round(((1.0 + math.log10(10) ) / (1.0 + math.log10(10 * abs(minPosition)))), 4)
+						else :
+							vecteur_distance[term] = minPosition
+
 			currentMatrixLine = numpy.zeros([1,len(lexicon) ],dtype=float )
 
 			for lex in vecteur_distance :
 				cPosition = lexiconPosition[lex]
 				if cPosition >= 0 :
-					currentMatrixLine[0][cPosition] =  vecteur_distance[lex] 		
+					currentMatrixLine[0][cPosition] = vecteur_distance[lex] 		
 			matrix[cL] =  currentMatrixLine
 	return matrix
 #_____________________________________________________________#
 def write2rawMatrix(matriceSortie,outMatrixFile):
+	print type(matriceSortie)
+	exit()	
 	fout = open(outMatrixFile , 'a')
 	for line in matriceSortie :
 		fout.write(line + '\n')
 	fout.close()
 #_____________________________________________________________#
-def dump2File(mat2Dump, DestFile):
-	fDest = open(DestFile, 'w')
-	fDest.write( str(int(mat2Dump.shape[0])) +  ' ' + str(int(mat2Dump.shape[1])) + '\n')
-	for p in mat2Dump :
-		line = []
-		for number in p :
-			line.append(str("%.4e" % number)) 
-		fDest.write( ' '.join(line) + '\n')
-	fDest.close()	
+def dump2File(mat2Dump, DestFile, header, overwrite):
+	print('--> dumping matrix')
+	if (not (os.path.exists(DestFile))) or overwrite:
+		fDest = open(DestFile, 'w')
+		if header :
+			fDest.write( str(int(mat2Dump.shape[0])) +  ' ' + str(int(mat2Dump.shape[1])) + '\n')
+		for p in mat2Dump :
+			line = []
+			for number in p :
+				line.append(str("%.4e" % number)) 
+			fDest.write( ' '.join(line) + '\n')
+		fDest.close()	
+	else : 
+		print('file already exists')
+#_____________________________________________________________#
+def removeMatrixEmptyLines(matrix, label):
+	rows = matrix.shape[0]
+	cols = matrix.shape[1]
+	it   = -1
+	emptyLine    = list()
+	nonEmptyLine = list()
+	outLabel     = list()
+	
+	for row in matrix :
+		it += 1
+		if numpy.sum(row) == 0:
+			emptyLine.append(it)
+		else:
+			nonEmptyLine.append(it)
+			outLabel.append(label[it])
+	
+	# _______ preparing new output matrix ________ #
+	outMatrix = numpy.empty([len(nonEmptyLine), cols ] , dtype=float)
+	
+	newItem = 0 
+	for item in nonEmptyLine :
+		outMatrix[newItem] = matrix[item]
+		newItem += 1
+		
+	return outMatrix, outLabel
 #_____________________________________________________________#
 def computeReduction(vt, mat2Project, cutOffSVD):
 	print('--> computing reduction')
@@ -216,24 +265,37 @@ def loadMatFile(fName):
 
 def buildCollocMatrix(lexicon, contextVect):
 	'''
-	lexicon = dict() word => nb of occurrences
-	contextVect = dict()->dict() pattern => distance_mini
+	lexicon = dict[w1 w2] => nb_of_occurrences
+	contextVect = dict[lineId][w1 w2] => distance_mini
 	'''
 	sortedLexicon = getSortedLexicon(lexicon)
 	outputMatrix = list()
+	
+	# == for each line of the context vector using index== #
 	for i in range(0, len(contextVect)-1):
 		currentLine = list()
 		currentContext = contextVect[i]
+		# == for each word of the lexicon if found add the distance to currentLine == #
 		for item in sortedLexicon :
 			if item in currentContext :
-				currentLine.append(currentContext[item])
+				currentLine.append(str(currentContext[item]))
 			else :
-				currentLine.append(0)
+				currentLine.append('0')
+		outputMatrix.append(' '.join(currentLine))
 	
+	return outputMatrix
 	
-
-
-
+#___________________________________________________________"
+def writeLexiconColloc(lexiconFile, lexicon):
+	print('--> writing lexicon')
+	if not (os.path.exists(lexiconFile)):
+		fLexicon= open(lexiconFile, 'w')
+		for item in lexicon:
+			fLexicon.write(item + ' ' + str(lexicon[item]) +'\n')
+		fLexicon.close()
+	else : 
+		print('lexicon file already exists')
+#___________________________________________________________#
 
 
 

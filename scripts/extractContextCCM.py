@@ -5,6 +5,7 @@
 import os, sys, threading, time
 from collections import defaultdict
 import utilsCCM
+import buildMatrixCCM
 #import commands
 #import subprocess
 #import cProfile
@@ -44,9 +45,9 @@ class extractContext(threading.Thread):
 	
 	def getContext(self):
 		''' 
-			start by looking for pattern quickly, then check 
-		    acceptation and rejection finally produce indexed vectors 
-		    output are written for each subcorpus
+		start by looking for pattern quickly, then check 
+		acceptation and rejection finally produce indexed vectors 
+		output are written for each subcorpus
 		'''
 		fTrace = open(self.expe.contextDir + '/' + self.rule + '.traces', 'w')
 		
@@ -170,28 +171,37 @@ def buildCollocContext(content):
 	'''
 	content = [[w1,w2,...][w1, w2,...]]
 	establishing collocation of 1-grams
+	retuns 
+	globalLexicon (dict[collocation] => count)
+	contextAll (dict[lineIt][w1 w2] => distance  )
+	contextOut = [['w1 w2:dist', 'w1 w3:dist', ... ][ 'w1 w2:dist', 'w1 w3:dist',...]]
+	
 	'''
-	lexiconGlobal = dict()
+		
 	contextAll = dict()
+	contextOut = list()
+	
 	for lineNb, lineContent  in enumerate(content) :
 		contextAll[lineNb] = dict()
-		for pos_w1 in range(0, len(line)-2):
-			for pos_w2 in range (pos_w1, len(line) -1):
-				mot1 = line[pos_w1]
-				mot2 = line[pos_w2]
+		
+		for pos_w1 in range(0, len(lineContent)-1):
+			for pos_w2 in range (pos_w1 + 1, len(lineContent) ):
+				#~ print (pos_w1, pos_w2)
+				mot1 = lineContent[pos_w1]
+				mot2 = lineContent[pos_w2]
 				distance = abs(pos_w2 - pos_w1)
-				pattern = ' '.join(mot1, mot2)
+				pattern = ' '.join([mot1, mot2])
 				if pattern not in contextAll[lineNb]:
 					contextAll[lineNb][pattern] = distance
 				elif abs(distance) <= abs(contextAll[lineNb][pattern]):
 					contextAll[lineNb][pattern] = distance
-		for p in contextAll[lineNb]:
-			if p not in lexiconGlobal:
-				lexiconGlobal[p] = 1
-			else :
-				lexiconGlobal[p] += 1
-
-	return lexiconGlobal, contextAll
+		
+		currentLine = list()
+		for item in contextAll[lineNb] :
+			currentLine.append(item +"<COUNT>" + str(contextAll[lineNb][item]))
+		contextOut.append(currentLine)
+		
+	return contextOut
 	
 
 #____________________________________________________________#

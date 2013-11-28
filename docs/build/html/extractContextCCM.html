@@ -51,7 +51,10 @@
 <dt id="extractContextCCM.buildCollocContext">
 <tt class="descclassname">extractContextCCM.</tt><tt class="descname">buildCollocContext</tt><big>(</big><em>content</em><big>)</big><a class="reference internal" href="_modules/extractContextCCM.html#buildCollocContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#extractContextCCM.buildCollocContext" title="Permalink to this definition">¶</a></dt>
 <dd><p>content = [[w1,w2,...][w1, w2,...]]
-establishing collocation of 1-grams</p>
+establishing collocation of 1-grams
+retuns 
+globalLexicon (dict[collocation] =&gt; count)
+contextAll (dict[lineIt][w1 w2] =&gt; distance  )</p>
 </dd></dl>
 
 <dl class="function">
@@ -71,9 +74,8 @@ search in the unfiltred context and get the POS filtered.</p>
 <dl class="method">
 <dt id="extractContextCCM.extractContext.getContext">
 <tt class="descname">getContext</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/extractContextCCM.html#extractContext.getContext"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#extractContextCCM.extractContext.getContext" title="Permalink to this definition">¶</a></dt>
-<dd><blockquote>
-<div>start by looking for pattern quickly, then check</div></blockquote>
-<p>acceptation and rejection finally produce indexed vectors 
+<dd><p>start by looking for pattern quickly, then check 
+acceptation and rejection finally produce indexed vectors 
 output are written for each subcorpus</p>
 </dd></dl>
 

@@ -146,7 +146,7 @@ def headingMatrixOutput(outMatrixFile, lineCnt, rawCnt):
 def computeMatrix(windowsLimit, lexicon, lexiconPosition, context, weighting):
 	''' from lexcion and context, order depends on the lexicon	'''
 	
-	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=float)	
+	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=numpy.float64)	
 	# == contrainst on the windows length == #
 	if (windowsLimit == -1):
 		windowsLimit = 100000
@@ -178,7 +178,7 @@ def computeMatrix(windowsLimit, lexicon, lexiconPosition, context, weighting):
 						else :
 							vecteur_distance[term] = minPosition
 
-			currentMatrixLine = numpy.zeros([1,len(lexicon) ],dtype=float )
+			currentMatrixLine = numpy.zeros([1,len(lexicon) ],dtype=numpy.float64 )
 
 			for lex in vecteur_distance :
 				cPosition = lexiconPosition[lex]
@@ -227,7 +227,7 @@ def removeMatrixEmptyLines(matrix, label):
 			outLabel.append(label[it])
 	
 	# _______ preparing new output matrix ________ #
-	outMatrix = numpy.empty([len(nonEmptyLine), cols ] , dtype=float)
+	outMatrix = numpy.empty([len(nonEmptyLine), cols ] , dtype=numpy.float64)
 	
 	newItem = 0 
 	for item in nonEmptyLine :
@@ -239,7 +239,7 @@ def removeMatrixEmptyLines(matrix, label):
 def computeReduction(vt, mat2Project, cutOffSVD):
 	print('--> computing reduction')
 	tsvdMatrix = numpy.transpose(vt)		
-	reducedMatrix = numpy.empty([ len(mat2Project), cutOffSVD ], dtype=float)
+	reducedMatrix = numpy.empty([ len(mat2Project), cutOffSVD ], dtype=numpy.float64)
 	cmpt_Line = 0
 	for currentLine in mat2Project:
 		result = numpy.dot(currentLine,tsvdMatrix)
@@ -254,7 +254,7 @@ def loadMatFile(fName):
 	if (len(matContent[0].rstrip().split()) != 2) :
 			print('check first line format in ' + fName)
 	else :
-		matrix=numpy.empty([int((matContent[0].split())[0]), int((matContent[0].split())[1])],dtype=float)
+		matrix=numpy.empty([int((matContent[0].split())[0]), int((matContent[0].split())[1])],dtype=numpy.float64)
 		for i in range(1, len(matContent)) :
 			j= 0
 			for item in matContent[i].split() :

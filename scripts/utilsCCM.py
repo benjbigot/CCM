@@ -25,6 +25,8 @@ def loadContentAndTags(fileDir):
 	NEGATIVE.phr
 	NEUTRAL.phr
 	'''
+	#labels = ['POSITIVE', 'NEGATIVE', 'NEUTRAL']
+	labels= { 'POSITIVE': 0 , 'NEGATIVE': 1, 'NEUTRAL' : 2 }
 	fileList = ['POSITIVE.phr', 'NEGATIVE.phr', 'NEUTRAL.phr']
 	#__ checking files existence __#
 	for file in fileList :
@@ -47,7 +49,8 @@ def loadContentAndTags(fileDir):
 			# remove empty lines #
 			if line.rstrip() != '':
 				# __ add tag POSITIVE, NEGATIVE or NEUTRAL to labelList
-				labelList.append(file.rstrip().split('.')[0])
+				currentLabel = file.rstrip().split('.')[0]
+				labelList.append(labels[currentLabel])
 				content = line.rstrip()
 				# suppose to contain only one line
 				corpusContent.append(re.sub(r' \+', ' ', content).split(' '))

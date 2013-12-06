@@ -34,26 +34,27 @@ if __name__ == '__main__':
 
 
 	# === mise en oeuvre du leave-one-out === #
-	processClassification.SVMmulticlass_LeaveOne_Out(reducedMatrix, reducedListLabel)
+	#processClassification.SVMmulticlass_LeaveOne_Out(reducedMatrix, reducedListLabel)
 
 
 	print "done.."
-	exit()
+	#exit()
 
 
 	# === écriture des fichiers text en sortie de tritement == #
-	#~ buildMatrixCCM.dump2File(outputMatrix, options.fileDir +'/matrix', False, True)
+	buildMatrixCCM.dump2File(outputMatrix, options.fileDir +'/matrix', False, True)
+	print('writing lexicon to ' + options.fileDir + '/lexicon')
 	buildMatrixCCM.writeLexicon(options.fileDir + '/lexicon' , lexicon, lexiconSorted, True)
 	buildMatrixCCM.dump2File(reducedMatrix, options.fileDir +'/matrix', False, True)
 	utilsCCM.writeList2File(options.fileDir +'/label', reducedListLabel, True)
 
 	# == zip de la matrice dense == #
-	indata = open(options.fileDir +'/matrix', 'r').read()
-	output = gzip.open(options.fileDir +'/matrix.gz', 'wb', 9)
-	try:
-		output.write(indata)
-	finally:
-		output.close()
-	os.remove(options.fileDir +'/matrix')
+	#~ indata = open(options.fileDir +'/matrix', 'r').read()
+	#~ output = gzip.open(options.fileDir +'/matrix.gz', 'wb', 9)
+	#~ try:
+		#~ output.write(indata)
+	#~ finally:
+		#~ output.close()
+	#~ os.remove(options.fileDir +'/matrix')
 
 #=========================================================#

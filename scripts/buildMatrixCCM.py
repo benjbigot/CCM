@@ -8,6 +8,7 @@ sys.path.append('/local_disk/hera2/PERCOL/bigot/PlateformeRecoName/lib/sparsesvd
 import scipy.sparse
 import sparsesvd
 import utilsCCM
+import codecs
 #------------------#
 
 class rawMatrix(threading.Thread):
@@ -126,7 +127,7 @@ def buildLexiconPositionTable(lexicon):
 def writeLexicon(lexiconFile, lexicon, lexiconPosition, overwrite):
 	print('--> writing lexicon')
 	if (not (os.path.exists(lexiconFile))) or overwrite:
-		fLexicon= open(lexiconFile, 'w')
+		fLexicon= codecs.open(lexiconFile, "w", "utf-8")
 		for item in lexiconPosition:
 			fLexicon.write(item + '\t' + str(lexicon[item]) +'\n')
 		fLexicon.close()
@@ -146,7 +147,7 @@ def headingMatrixOutput(outMatrixFile, lineCnt, rawCnt):
 def computeMatrix(windowsLimit, lexicon, lexiconPosition, context, weighting):
 	''' from lexcion and context, order depends on the lexicon	'''
 	
-	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=numpy.float64)	
+	matrix = numpy.empty([len(context), len(lexicon) ] , dtype=int)	
 	# == contrainst on the windows length == #
 	if (windowsLimit == -1):
 		windowsLimit = 100000
@@ -178,7 +179,7 @@ def computeMatrix(windowsLimit, lexicon, lexiconPosition, context, weighting):
 						else :
 							vecteur_distance[term] = minPosition
 
-			currentMatrixLine = numpy.zeros([1,len(lexicon) ],dtype=numpy.float64 )
+			currentMatrixLine = numpy.zeros([1,len(lexicon) ],dtype=int )
 
 			for lex in vecteur_distance :
 				cPosition = lexiconPosition[lex]
@@ -203,8 +204,9 @@ def dump2File(mat2Dump, DestFile, header, overwrite):
 			fDest.write( str(int(mat2Dump.shape[0])) +  ' ' + str(int(mat2Dump.shape[1])) + '\n')
 		for p in mat2Dump :
 			line = []
-			for number in p :
-				line.append(str("%.4e" % number)) 
+			for number in p :				
+				#line.append(str("%.4e" % number)) 
+				line.append(str(number)) 
 			fDest.write( ' '.join(line) + '\n')
 		fDest.close()	
 	else : 
@@ -227,7 +229,7 @@ def removeMatrixEmptyLines(matrix, label):
 			outLabel.append(label[it])
 	
 	# _______ preparing new output matrix ________ #
-	outMatrix = numpy.empty([len(nonEmptyLine), cols ] , dtype=numpy.float64)
+	outMatrix = numpy.empty([len(nonEmptyLine), cols ] , dtype=int)
 	
 	newItem = 0 
 	for item in nonEmptyLine :
@@ -239,7 +241,7 @@ def removeMatrixEmptyLines(matrix, label):
 def computeReduction(vt, mat2Project, cutOffSVD):
 	print('--> computing reduction')
 	tsvdMatrix = numpy.transpose(vt)		
-	reducedMatrix = numpy.empty([ len(mat2Project), cutOffSVD ], dtype=numpy.float64)
+	reducedMatrix = numpy.empty([ len(mat2Project), cutOffSVD ], dtype=int)
 	cmpt_Line = 0
 	for currentLine in mat2Project:
 		result = numpy.dot(currentLine,tsvdMatrix)
@@ -254,7 +256,7 @@ def loadMatFile(fName):
 	if (len(matContent[0].rstrip().split()) != 2) :
 			print('check first line format in ' + fName)
 	else :
-		matrix=numpy.empty([int((matContent[0].split())[0]), int((matContent[0].split())[1])],dtype=numpy.float64)
+		matrix=numpy.empty([int((matContent[0].split())[0]), int((matContent[0].split())[1])],dtype=int)
 		for i in range(1, len(matContent)) :
 			j= 0
 			for item in matContent[i].split() :

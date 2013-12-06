@@ -4,15 +4,14 @@
 
 import os, re, sys, commands, shutil
 from random import choice
-
-
+import codecs
 
 #=========================================#
 def writeList2File(destFile, list2write, overwrite):
 	if (not (os.path.exists(destFile))) or overwrite:
 		fDest = open(destFile, 'w')
 		for line in list2write:
-			fDest.write(line + '\n')
+			fDest.write(str(line) + '\n')
 		fDest.close()
 	else : 
 		print('file already exists')
@@ -29,32 +28,36 @@ def loadContentAndTags(fileDir):
 	labels= { 'POSITIVE': 0 , 'NEGATIVE': 1, 'NEUTRAL' : 2 }
 	fileList = ['POSITIVE.phr', 'NEGATIVE.phr', 'NEUTRAL.phr']
 	#__ checking files existence __#
-	for file in fileList :
-		if not os.path.exists(fileDir + '/' + file) :
-				print("file " + file + " does not exists")
+	for fileName in fileList :
+		if not os.path.exists(fileDir + '/' + fileName) :
+				print("file " + fileName + " does not exists")
 				exit()
 	
 	# __ files loading __ #
 	corpusContent = []
 	labelList     = []
-	
-	for file in fileList: 
-		print(fileDir + '/' + file)
+	counterContent = 0
+	for fileName in fileList: 
+		print(fileDir + '/' + fileName)
 		
-		fIn = open(fileDir + '/' + file , 'r')
+		fIn = codecs.open(fileDir + '/' + fileName , "r", "utf-8", errors='replace' )
 		Flist_content = fIn.readlines()
 		fIn.close()	
+		
+		print('fichier ' +  fileName + ' : ' + str(len(Flist_content)))
+		counterContent += len(Flist_content)
 
 		for line in Flist_content:
 			# remove empty lines #
 			if line.rstrip() != '':
 				# __ add tag POSITIVE, NEGATIVE or NEUTRAL to labelList
-				currentLabel = file.rstrip().split('.')[0]
+				currentLabel = fileName.rstrip().split('.')[0]
 				labelList.append(labels[currentLabel])
 				content = line.rstrip()
 				# suppose to contain only one line
 				corpusContent.append(re.sub(r' \+', ' ', content).split(' '))
-		
+	print('contenu ; ' + str(len(corpusContent)) + ' ' + str(counterContent))
+	
 	return corpusContent, labelList
 
 #=========================================#

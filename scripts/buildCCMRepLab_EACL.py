@@ -19,6 +19,7 @@ if __name__ == '__main__':
 	
 	parser = argparse.ArgumentParser(description='build collocation matrices for EACL')
 	parser.add_argument("-f", "--fileDir", dest="fileDir" , help="one tweet per line, the label is in the filename", required='True') 
+	parser.add_argument("-o", "--outDir", dest="outDir" , help="one tweet per line, the label is in the filename", required='True') 
 	options = parser.parse_args()
 	
 	content, listLabel  = utilsCCM.loadContentAndTags(options.fileDir)
@@ -38,15 +39,14 @@ if __name__ == '__main__':
 
 
 	print "done.."
-	#exit()
+
 
 
 	# === écriture des fichiers text en sortie de tritement == #
-	buildMatrixCCM.dump2File(outputMatrix, options.fileDir +'/matrix', False, True)
-	print('writing lexicon to ' + options.fileDir + '/lexicon')
-	buildMatrixCCM.writeLexicon(options.fileDir + '/lexicon' , lexicon, lexiconSorted, True)
-	buildMatrixCCM.dump2File(reducedMatrix, options.fileDir +'/matrix', False, True)
-	utilsCCM.writeList2File(options.fileDir +'/label', reducedListLabel, True)
+	#buildMatrixCCM.dump2File(outputMatrix, options.outDir +'/matrix', False, True)
+	buildMatrixCCM.writeLexicon(options.outDir + '/lexicon' , lexicon, lexiconSorted, True)
+	buildMatrixCCM.dump2File(reducedMatrix, options.outDir +'/matrix', False, True)
+	utilsCCM.writeList2File(options.outDir +'/label', reducedListLabel, True)
 
 	# == zip de la matrice dense == #
 	#~ indata = open(options.fileDir +'/matrix', 'r').read()
